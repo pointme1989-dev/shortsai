@@ -3,37 +3,42 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#080b14">
 <title>ShortsAI - Video Clipper</title>
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#080b14;color:#f5f7ff;font-family:Arial,sans-serif}
 header{padding:22px 18px;border-bottom:1px solid #252b3d}
-.logo{font-size:25px;font-weight:900;letter-spacing:1px}
+.logo{font-size:25px;font-weight:900}
 .logo span{color:#8b7bff}
-header p{color:#929bb1;font-size:12px;margin-bottom:0}
+header p,.sub{color:#929bb1;font-size:13px}
 main{padding:20px 16px;max-width:600px;margin:auto}
-h2{font-size:23px;margin-bottom:7px}
-.sub{color:#929bb1;font-size:13px;line-height:1.6}
+h2{font-size:24px}
 .panel{background:#111827;border:1px solid #293248;border-radius:16px;padding:17px;margin-top:18px}
-.upload{border:2px dashed #6258b8;border-radius:13px;padding:30px 12px;text-align:center;background:#171b2e}
+.upload{border:2px dashed #6258b8;border-radius:13px;padding:25px 12px;text-align:center;background:#171b2e}
 .upload .symbol{font-size:38px}
 .upload p{color:#aab2c6;font-size:13px}
 button,.filebtn{border:0;border-radius:10px;padding:13px 16px;background:#7163ee;color:white;font-weight:bold;font-size:14px;cursor:pointer}
+button:disabled{opacity:.5}
 .filebtn{display:inline-block;margin-top:8px}
 input[type=file]{display:none}
 label{display:block;font-size:13px;color:#cbd2e3;margin:17px 0 8px}
-select{width:100%;padding:13px;background:#20283a;color:white;border:1px solid #39445e;border-radius:9px;font-size:14px}
+select,input[type=number]{width:100%;padding:13px;background:#20283a;color:white;border:1px solid #39445e;border-radius:9px;font-size:14px}
+input[type=range]{width:100%;accent-color:#8274ff}
 video{width:100%;margin-top:14px;border-radius:10px;background:#05070c;max-height:350px}
 #videoPreview{display:none}
-#fileName{font-size:12px;color:#aab2c6;overflow-wrap:anywhere}
-.generate{width:100%;margin-top:20px;background:linear-gradient(100deg,#6658e9,#a04ce8);padding:16px;font-size:15px}
-.status{color:#aab2c6;font-size:12px;text-align:center;line-height:1.6}
+#clipPreview{display:none}
+#fileName,.status{font-size:12px;color:#aab2c6;overflow-wrap:anywhere;line-height:1.6}
+.status{text-align:center;margin-top:14px}
+.primary{width:100%;margin-top:18px;background:linear-gradient(100deg,#6658e9,#a04ce8);padding:16px}
+.secondary{width:100%;margin-top:10px;background:#293248}
 .features{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:17px}
 .feature{background:#171e30;border:1px solid #293248;border-radius:11px;padding:13px;font-size:12px;color:#dce2f2}
 .feature b{display:block;color:white;font-size:13px;margin-bottom:6px}
+#downloadLink{display:none;text-align:center;margin-top:16px;color:#a99dff;font-weight:bold}
 footer{text-align:center;color:#69738b;font-size:11px;padding:30px}
+.small{font-size:11px;color:#929bb1;line-height:1.5}
 </style>
 </head>
 <body>
@@ -41,9 +46,10 @@ footer{text-align:center;color:#69738b;font-size:11px;padding:30px}
   <div class="logo">SHORTS<span>AI</span> ⚡</div>
   <p>YOUR PERSONAL AI GAMING CLIPPER</p>
 </header>
+
 <main>
   <h2>Create amazing Shorts</h2>
-  <p class="sub">Turn long videos into exciting vertical videos with captions and animations.</p>
+  <p class="sub">Turn long videos into exciting vertical videos.</p>
 
   <section class="panel">
     <h3>📁 Upload your video</h3>
@@ -59,7 +65,8 @@ footer{text-align:center;color:#69738b;font-size:11px;padding:30px}
   </section>
 
   <section class="panel">
-    <h3>⚙️ Clip settings</h3>
+    <h3>✂️ Clip settings</h3>
+
     <label for="duration">Clip duration</label>
     <select id="duration">
       <option value="30">30 seconds</option>
@@ -67,62 +74,252 @@ footer{text-align:center;color:#69738b;font-size:11px;padding:30px}
       <option value="40">40 seconds</option>
     </select>
 
-    <label for="format">Video format</label>
-    <select id="format">
-      <option value="9:16">9:16 - YouTube Shorts</option>
-    </select>
+    <label for="startTime">Starting point (seconds)</label>
+    <input id="startTime" type="number" min="0" value="0" step="1">
+    <input id="startSlider" type="range" min="0" max="0" value="0">
+    <p class="small" id="videoLength">Upload a video to see its duration.</p>
 
-    <label for="captions">Subtitle style</label>
-    <select id="captions">
-      <option>Animated gaming captions</option>
-      <option>Clean white subtitles</option>
-      <option>Bold highlighted words</option>
-    </select>
+    <button class="secondary" id="previewClip" disabled>
+      ▶ Preview selected clip
+    </button>
 
-    <label for="count">Number of clips wanted</label>
-    <select id="count">
-      <option>1</option>
-      <option selected>3</option>
-      <option>5</option>
-      <option>10</option>
-    </select>
-    <button class="generate" id="generate">⚡ GENERATE SHORTS</button>
-    <p class="status" id="status">Your video is waiting to be processed.</p>
+    <button class="primary" id="exportClip" disabled>
+      ✂️ EXPORT TRIMMED MP4
+    </button>
+
+    <p class="status" id="status">
+      Upload a video to get started.
+    </p>
+
+    <a id="downloadLink" href="#" download="ShortsAI-clip.mp4">
+      ⬇ Download your MP4
+    </a>
+
+    <video id="clipPreview" controls playsinline></video>
   </section>
 
   <div class="features">
-    <div class="feature"><b>🤖 AI Highlights</b>Find exciting moments</div>
-    <div class="feature"><b>💬 Auto Captions</b>Generate subtitles</div>
-    <div class="feature"><b>✨ Animations</b>Animated text effects</div>
-    <div class="feature"><b>📱 Vertical Video</b>9:16 Shorts format</div>
+    <div class="feature"><b>✂️ Video trimming</b>Choose your clip timing</div>
+    <div class="feature"><b>📱 Vertical video</b>9:16 Shorts format</div>
+    <div class="feature"><b>💬 AI captions</b>Coming soon</div>
+    <div class="feature"><b>🤖 AI highlights</b>Coming soon</div>
   </div>
 </main>
+
 <footer>SHORTSAI · YOUR PERSONAL CREATION STUDIO</footer>
 
-<script>
+<script type="module">
+import { FFmpeg } from
+'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js';
+
+import { toBlobURL } from
+'https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.2/dist/esm/index.js';
+
 const fileInput=document.getElementById('videoFile');
-const preview=document.getElementById('videoPreview');
-const fileName=document.getElementById('fileName');
+const video=document.getElementById('videoPreview');
+const clipVideo=document.getElementById('clipPreview');
+const duration=document.getElementById('duration');
+const start=document.getElementById('startTime');
+const slider=document.getElementById('startSlider');
 const status=document.getElementById('status');
+const exportBtn=document.getElementById('exportClip');
+const previewBtn=document.getElementById('previewClip');
+const downloadLink=document.getElementById('downloadLink');
+
+let selectedFile=null;
 let videoURL=null;
+let outputURL=null;
+let videoDuration=0;
+let ffmpeg=null;
+let ffmpegLoaded=false;
+
+function getStart(){
+  return Math.max(0,Math.min(
+    Number(start.value)||0,
+    Math.max(0,videoDuration-Number(duration.value))
+  ));
+}
+
+function updateStart(value){
+  const max=Math.max(0,videoDuration-Number(duration.value));
+  const safe=Math.max(0,Math.min(Number(value)||0,max));
+  start.value=Math.floor(safe);
+  slider.value=safe;
+}
 
 fileInput.addEventListener('change',()=>{
   const file=fileInput.files[0];
   if(!file)return;
+
+  selectedFile=file;
+
   if(videoURL)URL.revokeObjectURL(videoURL);
   videoURL=URL.createObjectURL(file);
-  preview.src=videoURL;
-  preview.style.display='block';
-  fileName.textContent='Selected: '+file.name;
-  status.textContent='Video loaded successfully! Ready for the next step.';
+  video.src=videoURL;
+  video.style.display='block';
+
+  document.getElementById('fileName').textContent=
+    'Selected: '+file.name;
+
+  status.textContent='Loading video information...';
+  exportBtn.disabled=true;
+  previewBtn.disabled=true;
+  downloadLink.style.display='none';
+  clipVideo.style.display='none';
 });
 
-document.getElementById('generate').addEventListener('click',()=>{
-  if(!fileInput.files.length){
-    status.textContent='Please select a video first.';
-    return;
+video.addEventListener('loadedmetadata',()=>{
+  videoDuration=video.duration;
+  const max=Math.max(0,videoDuration-Number(duration.value));
+  slider.max=max;
+  updateStart(0);
+
+  document.getElementById('videoLength').textContent=
+    'Video length: '+videoDuration.toFixed(1)+' seconds';
+
+  const enough=videoDuration>=Number(duration.value);
+  exportBtn.disabled=!enough;
+  previewBtn.disabled=!enough;
+
+  status.textContent=enough
+    ? 'Video ready! Select your clip starting point.'
+    : 'This video is shorter than your selected clip.';
+});
+
+start.addEventListener('input',()=>{
+  updateStart(start.value);
+});
+
+slider.addEventListener('input',()=>{
+  updateStart(slider.value);
+});
+
+duration.addEventListener('change',()=>{
+  updateStart(start.value);
+  const enough=videoDuration>=Number(duration.value);
+  exportBtn.disabled=!enough||!selectedFile;
+  previewBtn.disabled=!enough||!selectedFile;
+});
+
+previewBtn.addEventListener('click',async()=>{
+  const from=getStart();
+  const to=from+Number(duration.value);
+
+  video.currentTime=from;
+  try{
+    await video.play();
+    const stop=()=>{
+      if(video.currentTime>=to){
+        video.pause();
+        video.removeEventListener('timeupdate',stop);
+      }
+    };
+    video.addEventListener('timeupdate',stop);
+  }catch(e){
+    status.textContent='Unable to play preview.';
   }
-  status.textContent='Upload successful! AI processing will be added in the next development steps.';
+});
+
+async function loadEngine(){
+  if(ffmpegLoaded)return;
+
+  status.textContent='Loading video engine... Please wait.';
+
+  ffmpeg=new FFmpeg();
+
+  const base='https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd';
+
+  await ffmpeg.load({
+    coreURL:await toBlobURL(
+      base+'/ffmpeg-core.js','text/javascript'
+    ),
+    wasmURL:await toBlobURL(
+      base+'/ffmpeg-core.wasm','application/wasm'
+    )
+  });
+
+  ffmpegLoaded=true;
+}
+
+exportBtn.addEventListener('click',async()=>{
+  if(!selectedFile)return;
+
+  exportBtn.disabled=true;
+  previewBtn.disabled=true;
+  downloadLink.style.display='none';
+
+  try{
+    status.textContent='Preparing video engine...';
+
+    await loadEngine();
+
+    status.textContent='Preparing your video...';
+
+    const ext=(selectedFile.name.split('.').pop()||'mp4')
+      .toLowerCase().replace(/[^a-z0-9]/g,'');
+    const inputName='input.'+ext;
+    const outputName='shortsai-output.mp4';
+
+    await ffmpeg.writeFile(
+      inputName,
+      new Uint8Array(await selectedFile.arrayBuffer())
+    );
+
+    const seconds=Number(duration.value);
+    const from=getStart();
+
+    status.textContent='Trimming and converting video...';
+
+    await ffmpeg.exec([
+      '-ss',String(from),
+      '-i',inputName,
+      '-t',String(seconds),
+      '-map','0:v:0',
+      '-map','0:a?',
+      '-vf','scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280',
+      '-c:v','libx264',
+      '-preset','ultrafast',
+      '-crf','27',
+      '-c:a','aac',
+      '-b:a','128k',
+      '-movflags','+faststart',
+      '-shortest',
+      outputName
+    ]);
+
+    status.textContent='Preparing your download...';
+
+    const data=await ffmpeg.readFile(outputName);
+
+    if(outputURL)URL.revokeObjectURL(outputURL);
+
+    outputURL=URL.createObjectURL(
+      new Blob([data],{type:'video/mp4'})
+    );
+
+    clipVideo.src=outputURL;
+    clipVideo.style.display='block';
+
+    downloadLink.href=outputURL;
+    downloadLink.style.display='block';
+
+    downloadLink.download='ShortsAI-'+seconds+'s.mp4';
+
+    status.textContent='Success! Your '+seconds+
+      '-second vertical MP4 is ready.';
+
+    await ffmpeg.deleteFile(inputName);
+    await ffmpeg.deleteFile(outputName);
+
+  }catch(error){
+    console.error(error);
+    status.textContent='Processing failed: '+error.message+
+      '. Try a smaller MP4 video or reload the app.';
+  }finally{
+    exportBtn.disabled=!selectedFile||
+      videoDuration<Number(duration.value);
+    previewBtn.disabled=exportBtn.disabled;
+  }
 });
 </script>
 </body>
