@@ -1,0 +1,129 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#080b14">
+<title>ShortsAI - Video Clipper</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#080b14;color:#f5f7ff;font-family:Arial,sans-serif}
+header{padding:22px 18px;border-bottom:1px solid #252b3d}
+.logo{font-size:25px;font-weight:900;letter-spacing:1px}
+.logo span{color:#8b7bff}
+header p{color:#929bb1;font-size:12px;margin-bottom:0}
+main{padding:20px 16px;max-width:600px;margin:auto}
+h2{font-size:23px;margin-bottom:7px}
+.sub{color:#929bb1;font-size:13px;line-height:1.6}
+.panel{background:#111827;border:1px solid #293248;border-radius:16px;padding:17px;margin-top:18px}
+.upload{border:2px dashed #6258b8;border-radius:13px;padding:30px 12px;text-align:center;background:#171b2e}
+.upload .symbol{font-size:38px}
+.upload p{color:#aab2c6;font-size:13px}
+button,.filebtn{border:0;border-radius:10px;padding:13px 16px;background:#7163ee;color:white;font-weight:bold;font-size:14px;cursor:pointer}
+.filebtn{display:inline-block;margin-top:8px}
+input[type=file]{display:none}
+label{display:block;font-size:13px;color:#cbd2e3;margin:17px 0 8px}
+select{width:100%;padding:13px;background:#20283a;color:white;border:1px solid #39445e;border-radius:9px;font-size:14px}
+video{width:100%;margin-top:14px;border-radius:10px;background:#05070c;max-height:350px}
+#videoPreview{display:none}
+#fileName{font-size:12px;color:#aab2c6;overflow-wrap:anywhere}
+.generate{width:100%;margin-top:20px;background:linear-gradient(100deg,#6658e9,#a04ce8);padding:16px;font-size:15px}
+.status{color:#aab2c6;font-size:12px;text-align:center;line-height:1.6}
+.features{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:17px}
+.feature{background:#171e30;border:1px solid #293248;border-radius:11px;padding:13px;font-size:12px;color:#dce2f2}
+.feature b{display:block;color:white;font-size:13px;margin-bottom:6px}
+footer{text-align:center;color:#69738b;font-size:11px;padding:30px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">SHORTS<span>AI</span> ⚡</div>
+  <p>YOUR PERSONAL AI GAMING CLIPPER</p>
+</header>
+<main>
+  <h2>Create amazing Shorts</h2>
+  <p class="sub">Turn long videos into exciting vertical videos with captions and animations.</p>
+
+  <section class="panel">
+    <h3>📁 Upload your video</h3>
+    <div class="upload">
+      <div class="symbol">🎬</div>
+      <b>Select a video from your phone</b>
+      <p>MP4, MOV or WebM</p>
+      <label class="filebtn" for="videoFile">Choose video</label>
+      <input id="videoFile" type="file" accept="video/*">
+    </div>
+    <p id="fileName">No video selected</p>
+    <video id="videoPreview" controls playsinline></video>
+  </section>
+
+  <section class="panel">
+    <h3>⚙️ Clip settings</h3>
+    <label for="duration">Clip duration</label>
+    <select id="duration">
+      <option value="30">30 seconds</option>
+      <option value="35" selected>35 seconds</option>
+      <option value="40">40 seconds</option>
+    </select>
+
+    <label for="format">Video format</label>
+    <select id="format">
+      <option value="9:16">9:16 - YouTube Shorts</option>
+    </select>
+
+    <label for="captions">Subtitle style</label>
+    <select id="captions">
+      <option>Animated gaming captions</option>
+      <option>Clean white subtitles</option>
+      <option>Bold highlighted words</option>
+    </select>
+
+    <label for="count">Number of clips wanted</label>
+    <select id="count">
+      <option>1</option>
+      <option selected>3</option>
+      <option>5</option>
+      <option>10</option>
+    </select>
+    <button class="generate" id="generate">⚡ GENERATE SHORTS</button>
+    <p class="status" id="status">Your video is waiting to be processed.</p>
+  </section>
+
+  <div class="features">
+    <div class="feature"><b>🤖 AI Highlights</b>Find exciting moments</div>
+    <div class="feature"><b>💬 Auto Captions</b>Generate subtitles</div>
+    <div class="feature"><b>✨ Animations</b>Animated text effects</div>
+    <div class="feature"><b>📱 Vertical Video</b>9:16 Shorts format</div>
+  </div>
+</main>
+<footer>SHORTSAI · YOUR PERSONAL CREATION STUDIO</footer>
+
+<script>
+const fileInput=document.getElementById('videoFile');
+const preview=document.getElementById('videoPreview');
+const fileName=document.getElementById('fileName');
+const status=document.getElementById('status');
+let videoURL=null;
+
+fileInput.addEventListener('change',()=>{
+  const file=fileInput.files[0];
+  if(!file)return;
+  if(videoURL)URL.revokeObjectURL(videoURL);
+  videoURL=URL.createObjectURL(file);
+  preview.src=videoURL;
+  preview.style.display='block';
+  fileName.textContent='Selected: '+file.name;
+  status.textContent='Video loaded successfully! Ready for the next step.';
+});
+
+document.getElementById('generate').addEventListener('click',()=>{
+  if(!fileInput.files.length){
+    status.textContent='Please select a video first.';
+    return;
+  }
+  status.textContent='Upload successful! AI processing will be added in the next development steps.';
+});
+</script>
+</body>
+</html>
