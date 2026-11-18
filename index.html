@@ -234,6 +234,7 @@ async function loadEngine(){
   });
 
   await ffmpeg.load({
+    classWorkerURL:'https://pointme1989-dev.github.io/shortsai/worker.js',
     coreURL:await toBlobURL(
       coreBase+'/ffmpeg-core.js',
       'text/javascript'
