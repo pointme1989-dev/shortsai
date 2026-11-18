@@ -20,7 +20,28 @@ h1{font-size:25px;margin:4px 0 8px}h2{font-size:17px;margin:0 0 14px}
 button,.filebtn{border:0;border-radius:10px;padding:13px 16px;background:#7163ee;color:white;font-weight:bold;font-size:14px;cursor:pointer}
 button:disabled{opacity:.45;cursor:not-allowed}
 .filebtn{display:inline-block;margin-top:8px}
-input[type=file]{display:none}
+input[type=file]{
+  display:block;
+  width:100%;
+  max-width:100%;
+  margin-top:14px;
+  padding:12px;
+  color:#f5f7ff;
+  background:#20283a;
+  border:1px solid #6258b8;
+  border-radius:10px;
+  font-size:13px;
+  cursor:pointer;
+}
+input[type=file]::file-selector-button{
+  border:0;
+  border-radius:8px;
+  padding:10px 12px;
+  margin-right:10px;
+  background:#7163ee;
+  color:white;
+  font-weight:bold;
+}
 label{display:block;font-size:13px;color:#cbd2e3;margin:16px 0 8px}
 select,input[type=number]{width:100%;padding:12px;background:#20283a;color:white;border:1px solid #39445e;border-radius:9px;font-size:14px}
 input[type=range]{width:100%;accent-color:#8274ff}
@@ -64,8 +85,7 @@ footer{text-align:center;color:#69738b;font-size:11px;padding:24px}
       <div class="symbol">🎬</div>
       <b>Select a video from your phone</b>
       <p>MP4, MOV or WebM supported by your browser</p>
-      <label class="filebtn" for="videoFile">Choose video</label>
-      <input id="videoFile" type="file" accept="video/*">
+      <input id="videoFile" type="file" accept="video/*,.mp4,.mov,.webm">
     </div>
     <p id="fileName">No video selected</p>
     <video id="sourceVideo" controls playsinline preload="metadata"></video>
@@ -88,6 +108,14 @@ footer{text-align:center;color:#69738b;font-size:11px;padding:24px}
     <p class="small" id="videoLength">Upload a video to see its duration.</p>
     <button class="secondary" id="previewBtn" disabled>▶ Preview selected clip</button>
     <button class="primary" id="exportBtn" disabled>⬇ EXPORT THIS CLIP</button>
+    <div class="panel" style="margin-top:16px;background:#0d1423">
+      <h2>✨ Find highlight moments</h2>
+      <p class="small">Scan the video for visually active sections. ShortsAI will suggest moments based on movement and scene changes. This is a basic on-device detector, not semantic AI.</p>
+      <button class="primary" id="analyzeBtn" disabled>🔎 FIND HIGHLIGHTS</button>
+      <p class="small" id="analysisInfo">Upload a video to analyse it.</p>
+      <div class="clip-list" id="suggestionList"></div>
+      <button class="primary" id="highlightBtn" disabled>✂️ CREATE SELECTED HIGHLIGHTS</button>
+    </div>
     <div class="panel" style="margin-top:16px;background:#0d1423">
       <h2>🎞️ Create multiple clips</h2>
       <p class="small">Automatically divide your chosen section into several clips of the selected duration. You can download each clip separately.</p>
@@ -151,10 +179,15 @@ const gapSelect=document.getElementById('gapSeconds');
 const batchInfo=document.getElementById('batchInfo');
 const batchProgress=document.getElementById('batchProgress');
 const clipList=document.getElementById('clipList');
+const analyzeBtn=document.getElementById('analyzeBtn');
+const analysisInfo=document.getElementById('analysisInfo');
+const suggestionList=document.getElementById('suggestionList');
+const highlightBtn=document.getElementById('highlightBtn');
 const fileName=document.getElementById('fileName');
 const videoLength=document.getElementById('videoLength');
 let file=null,sourceURL=null,resultURL=null,videoDuration=0,previewStopHandler=null;
 let recording=false;
+let suggestions=[];
 
 function clipLength(){return Number(durationSelect.value)||30}
 function maxStart(){return Math.max(0,videoDuration-clipLength())}
@@ -168,6 +201,8 @@ function updateControls(){
   exportBtn.disabled=!ready||recording;
   previewBtn.disabled=!ready||recording;
   batchBtn.disabled=!ready||recording||!batchFits();
+  analyzeBtn.disabled=!ready||recording;
+  highlightBtn.disabled=recording||!suggestionList.querySelector('input:checked');
   slider.max=maxStart();
   setStart(startInput.value);
   updateBatchInfo();
@@ -206,6 +241,8 @@ fileInput.addEventListener('change',()=>{
   source.src=sourceURL;source.style.display='block';source.load();
   fileName.textContent='Selected: '+chosen.name+' ('+(chosen.size/1048576).toFixed(1)+' MB)';
   result.style.display='none';downloadLink.style.display='none';
+  suggestionList.innerHTML='';suggestions=[];analysisInfo.textContent='Ready to scan the video.';
+  highlightBtn.disabled=true;
   setStatus('Reading video information...');
   updateControls();
 });
@@ -324,6 +361,142 @@ async function renderClip(from,seconds,label,onProgress){
     if(audioContext){try{await audioContext.close()}catch(_){}}
   }
 }
+
+function waitForSeek(time){
+  return new Promise((resolve,reject)=>{
+    const timeout=setTimeout(()=>{source.removeEventListener('seeked',done);reject(new Error('Video analysis seek timed out'))},12000);
+    function done(){clearTimeout(timeout);source.removeEventListener('seeked',done);resolve()}
+    source.addEventListener('seeked',done,{once:true});
+    source.currentTime=time;
+    if(Math.abs(source.currentTime-time)<0.04&&source.readyState>=2){
+      clearTimeout(timeout);source.removeEventListener('seeked',done);resolve();
+    }
+  });
+}
+function frameSignature(ctx,canvas){
+  ctx.drawImage(source,0,0,canvas.width,canvas.height);
+  const pixels=ctx.getImageData(0,0,canvas.width,canvas.height).data;
+  const values=new Uint8Array(canvas.width*canvas.height);
+  for(let i=0,j=0;i<pixels.length;i+=4,j++){
+    values[j]=Math.round((pixels[i]*0.299+pixels[i+1]*0.587+pixels[i+2]*0.114)/3);
+  }
+  return values;
+}
+function selectedSuggestions(){
+  return Array.from(suggestionList.querySelectorAll('input[type="checkbox"]:checked'))
+    .map(el=>Number(el.value)).filter(n=>Number.isFinite(n));
+}
+async function analyseHighlights(){
+  if(!file||recording)return;
+  recording=true;updateControls();
+  analyzeBtn.disabled=true;highlightBtn.disabled=true;
+  suggestionList.innerHTML='';suggestions=[];
+  const previousTime=source.currentTime||0;
+  const wasPlaying=!source.paused;
+  source.pause();
+  try{
+    const canvas=document.createElement('canvas');canvas.width=48;canvas.height=27;
+    const ctx=canvas.getContext('2d',{willReadFrequently:true});
+    const step=Math.max(1.5,videoDuration/900);
+    const scores=[];
+    let previous=null;
+    const total=Math.max(1,Math.ceil(videoDuration/step));
+    for(let i=0;i<total;i++){
+      const t=Math.min(i*step,Math.max(0,videoDuration-0.08));
+      await waitForSeek(t);
+      const current=frameSignature(ctx,canvas);
+      let diff=0;
+      if(previous){
+        for(let j=0;j<current.length;j++)diff+=Math.abs(current[j]-previous[j]);
+        diff=diff/current.length/255;
+      }
+      scores.push({time:t,score:diff});
+      previous=current;
+      analysisInfo.textContent='Scanning video: '+Math.min(100,Math.round((i+1)/total*100))+'%';
+    }
+    const length=clipLength();
+    const stepWindow=Math.max(2,Math.min(5,length/4));
+    const windows=[];
+    for(let start=0;start+length<=videoDuration+0.01;start+=stepWindow){
+      const inside=scores.filter(x=>x.time>=start&&x.time<start+length);
+      if(!inside.length)continue;
+      const avg=inside.reduce((sum,x)=>sum+x.score,0)/inside.length;
+      const peak=Math.max(...inside.map(x=>x.score));
+      windows.push({start,score:avg*0.75+peak*0.25});
+    }
+    windows.sort((a,b)=>b.score-a.score);
+    const chosen=[];
+    for(const w of windows){
+      if(chosen.every(c=>Math.abs(c.start-w.start)>=length)){
+        chosen.push(w);
+        if(chosen.length>=Math.min(10,Math.max(3,Number(clipCountSelect.value)||3)))break;
+      }
+    }
+    chosen.sort((a,b)=>a.start-b.start);
+    suggestions=chosen;
+    if(!chosen.length){
+      analysisInfo.textContent='No suitable sections found. Try a shorter clip duration.';
+    }else{
+      analysisInfo.textContent='Found '+chosen.length+' suggested moments. Select the ones you want to create.';
+      chosen.forEach((item,index)=>{
+        const row=document.createElement('label');
+        row.className='clip-item';
+        row.style.display='flex';row.style.alignItems='center';row.style.gap='10px';row.style.margin='0';
+        const check=document.createElement('input');
+        check.type='checkbox';check.value=String(item.start);check.checked=true;
+        check.style.width='20px';check.style.height='20px';check.style.flex='0 0 auto';
+        check.addEventListener('change',updateControls);
+        const info=document.createElement('span');
+        info.textContent='Highlight '+(index+1)+' · '+formatTime(item.start)+' – '+formatTime(item.start+length)+' · activity score '+(item.score*100).toFixed(1);
+        row.append(check,info);suggestionList.appendChild(row);
+      });
+      highlightBtn.disabled=false;
+    }
+  }catch(err){
+    console.error(err);
+    analysisInfo.textContent='Analysis could not finish: '+(err.message||String(err));
+  }finally{
+    try{await waitForSeek(Math.min(previousTime,Math.max(0,videoDuration-0.1)))}catch(_){}
+    if(wasPlaying){try{await source.play()}catch(_){}}
+    recording=false;updateControls();
+    analyzeBtn.disabled=!file||videoDuration<clipLength();
+  }
+}
+function formatTime(seconds){
+  const m=Math.floor(seconds/60),s=Math.floor(seconds%60);
+  return m+':'+String(s).padStart(2,'0');
+}
+async function createSelectedHighlights(){
+  if(recording)return;
+  const starts=selectedSuggestions();
+  if(!starts.length)return;
+  recording=true;updateControls();
+  const seconds=clipLength();
+  clipList.innerHTML='';
+  batchProgress.style.width='0%';
+  try{
+    for(let i=0;i<starts.length;i++){
+      const start=starts[i];
+      setStatus('Creating selected highlight '+(i+1)+' of '+starts.length+'...');
+      const output=await renderClip(start,seconds,'highlight '+(i+1),p=>{
+        batchProgress.style.width=(((i+p/100)/starts.length)*100)+'%';
+        setStatus('Creating highlight '+(i+1)+' of '+starts.length+' · '+Math.floor(p)+'%');
+      });
+      const ext=output.mime.toLowerCase().includes('mp4')?'mp4':'webm';
+      const url=URL.createObjectURL(output.blob);
+      const item=document.createElement('div');item.className='clip-item';
+      const heading=document.createElement('b');heading.textContent='Highlight '+(i+1)+' · '+formatTime(start);
+      const detail=document.createElement('div');detail.className='muted';detail.textContent=seconds+' seconds · vertical 9:16 · '+ext.toUpperCase();
+      const link=document.createElement('a');link.href=url;link.download='ShortsAI-highlight-'+String(i+1).padStart(2,'0')+'.'+ext;link.textContent='⬇ Download highlight '+(i+1);
+      item.append(heading,detail,link);clipList.appendChild(item);
+    }
+    batchProgress.style.width='100%';
+    setStatus('Done! Your selected highlights are ready to download below.');
+  }catch(err){
+    console.error(err);setStatus('Highlight export stopped: '+(err.message||String(err))+'. Completed clips remain available.');
+  }finally{recording=false;updateControls()}
+}
+
 async function exportClip(){
   if(!file||recording)return;
   recording=true;updateControls();downloadLink.style.display='none';result.style.display='none';
@@ -390,6 +563,8 @@ async function generateBatch(){
 }
 exportBtn.addEventListener('click',exportClip);
 batchBtn.addEventListener('click',generateBatch);
+analyzeBtn.addEventListener('click',analyseHighlights);
+highlightBtn.addEventListener('click',createSelectedHighlights);
 window.addEventListener('beforeunload',()=>{
   if(sourceURL)URL.revokeObjectURL(sourceURL);
   if(resultURL)URL.revokeObjectURL(resultURL);
