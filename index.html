@@ -227,12 +227,11 @@ async function loadEngine(){
   ffmpeg=new FFmpeg();
 
   const coreBase='https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd';
-  const workerBase='https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm';
 
   await ffmpeg.load({
-    classWorkerURL: await toBlobURL(workerBase+'/worker.js','text/javascript'),
-    coreURL: await toBlobURL(coreBase+'/ffmpeg-core.js','text/javascript'),
-    wasmURL: await toBlobURL(coreBase+'/ffmpeg-core.wasm','application/wasm')
+    classWorkerURL:'https://pointme1989-dev.github.io/shortsai/worker.js',
+    coreURL:await toBlobURL(coreBase+'/ffmpeg-core.js','text/javascript'),
+    wasmURL:await toBlobURL(coreBase+'/ffmpeg-core.wasm','application/wasm')
   });
 
   ffmpegLoaded=true;
