@@ -224,14 +224,24 @@ async function loadEngine(){
   if(ffmpegLoaded)return;
 
   status.textContent='Loading video engine... Please wait.';
+
   ffmpeg=new FFmpeg();
 
   const coreBase='https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
 
+  ffmpeg.on('log',({message})=>{
+    console.log('FFmpeg:',message);
+  });
+
   await ffmpeg.load({
-    classWorkerURL:'https://pointme1989-dev.github.io/shortsai/worker.js',
-    coreURL:await toBlobURL(coreBase+'/ffmpeg-core.js','text/javascript'),
-    wasmURL:await toBlobURL(coreBase+'/ffmpeg-core.wasm','application/wasm')
+    coreURL:await toBlobURL(
+      coreBase+'/ffmpeg-core.js',
+      'text/javascript'
+    ),
+    wasmURL:await toBlobURL(
+      coreBase+'/ffmpeg-core.wasm',
+      'application/wasm'
+    )
   });
 
   ffmpegLoaded=true;
