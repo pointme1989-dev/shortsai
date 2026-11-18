@@ -226,7 +226,7 @@ async function loadEngine(){
   status.textContent='Loading video engine... Please wait.';
   ffmpeg=new FFmpeg();
 
-  const coreBase='https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd';
+  const coreBase='https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
 
   await ffmpeg.load({
     classWorkerURL:'https://pointme1989-dev.github.io/shortsai/worker.js',
