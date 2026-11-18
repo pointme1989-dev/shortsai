@@ -35,6 +35,15 @@ video{width:100%;margin-top:13px;border-radius:10px;background:#05070c;max-heigh
 .feature{background:#171e30;border:1px solid #293248;border-radius:11px;padding:13px;font-size:12px;color:#dce2f2}
 .feature b{display:block;color:white;font-size:13px;margin-bottom:6px}
 #downloadLink{display:none;text-align:center;margin-top:16px;color:#b9adff;font-weight:bold}
+.batch-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.clip-list{display:grid;gap:9px;margin-top:14px}
+.clip-item{background:#171e30;border:1px solid #34405a;border-radius:11px;padding:12px;font-size:13px}
+.clip-item a{display:inline-block;margin-top:8px;color:#c5bcff;font-weight:bold;text-decoration:none}
+.clip-item video{max-height:220px}
+.clip-item .muted{color:#9aa5bd;font-size:11px;margin-top:4px}
+.progress-track{height:8px;background:#293248;border-radius:99px;overflow:hidden;margin-top:10px}
+.progress-fill{height:100%;width:0;background:linear-gradient(90deg,#6658e9,#a04ce8);transition:width .2s}
+
 .small{font-size:11px;color:var(--muted);line-height:1.55}
 .notice{background:#201d35;border:1px solid #49416f;padding:12px;border-radius:10px;color:#dcd7ff;font-size:12px;line-height:1.5;margin-top:14px}
 footer{text-align:center;color:#69738b;font-size:11px;padding:24px}
@@ -78,7 +87,34 @@ footer{text-align:center;color:#69738b;font-size:11px;padding:24px}
     <input id="startSlider" type="range" min="0" max="0" value="0">
     <p class="small" id="videoLength">Upload a video to see its duration.</p>
     <button class="secondary" id="previewBtn" disabled>▶ Preview selected clip</button>
-    <button class="primary" id="exportBtn" disabled>⬇ EXPORT VERTICAL VIDEO</button>
+    <button class="primary" id="exportBtn" disabled>⬇ EXPORT THIS CLIP</button>
+    <div class="panel" style="margin-top:16px;background:#0d1423">
+      <h2>🎞️ Create multiple clips</h2>
+      <p class="small">Automatically divide your chosen section into several clips of the selected duration. You can download each clip separately.</p>
+      <div class="batch-grid">
+        <div>
+          <label for="clipCount">Number of clips</label>
+          <select id="clipCount">
+            <option value="2">2 clips</option><option value="3" selected>3 clips</option>
+            <option value="4">4 clips</option><option value="5">5 clips</option>
+            <option value="6">6 clips</option><option value="8">8 clips</option>
+            <option value="10">10 clips</option>
+          </select>
+        </div>
+        <div>
+          <label for="gapSeconds">Gap between clips</label>
+          <select id="gapSeconds">
+            <option value="0" selected>No gap</option>
+            <option value="5">5 seconds</option><option value="10">10 seconds</option>
+            <option value="15">15 seconds</option><option value="30">30 seconds</option>
+          </select>
+        </div>
+      </div>
+      <p class="small" id="batchInfo">Upload a video to calculate how many clips fit.</p>
+      <button class="primary" id="batchBtn" disabled>⚡ GENERATE MULTIPLE CLIPS</button>
+      <div class="progress-track"><div class="progress-fill" id="batchProgress"></div></div>
+      <div class="clip-list" id="clipList"></div>
+    </div>
     <p class="status" id="status" role="status">Upload a video to get started.</p>
     <a id="downloadLink" href="#" download="ShortsAI-clip.webm">⬇ Download your clip</a>
     <video id="resultVideo" controls playsinline></video>
@@ -109,6 +145,12 @@ const status=document.getElementById('status');
 const exportBtn=document.getElementById('exportBtn');
 const previewBtn=document.getElementById('previewBtn');
 const downloadLink=document.getElementById('downloadLink');
+const batchBtn=document.getElementById('batchBtn');
+const clipCountSelect=document.getElementById('clipCount');
+const gapSelect=document.getElementById('gapSeconds');
+const batchInfo=document.getElementById('batchInfo');
+const batchProgress=document.getElementById('batchProgress');
+const clipList=document.getElementById('clipList');
 const fileName=document.getElementById('fileName');
 const videoLength=document.getElementById('videoLength');
 let file=null,sourceURL=null,resultURL=null,videoDuration=0,previewStopHandler=null;
@@ -125,10 +167,34 @@ function updateControls(){
   const ready=!!file && Number.isFinite(videoDuration) && videoDuration>=clipLength();
   exportBtn.disabled=!ready||recording;
   previewBtn.disabled=!ready||recording;
+  batchBtn.disabled=!ready||recording||!batchFits();
   slider.max=maxStart();
   setStart(startInput.value);
+  updateBatchInfo();
 }
 function setStatus(message){status.textContent=message}
+function batchStarts(){
+  const count=Number(clipCountSelect.value)||3;
+  const gap=Number(gapSelect.value)||0;
+  const length=clipLength();
+  const first=startAt();
+  return Array.from({length:count},(_,i)=>first+i*(length+gap));
+}
+function batchFits(){
+  if(!Number.isFinite(videoDuration)||!videoDuration)return false;
+  const starts=batchStarts();
+  return starts.length>0 && starts[starts.length-1]+clipLength()<=videoDuration+0.05;
+}
+function updateBatchInfo(){
+  if(!batchInfo)return;
+  if(!videoDuration){batchInfo.textContent='Upload a video to calculate how many clips fit.';return}
+  const starts=batchStarts();
+  const end=starts[starts.length-1]+clipLength();
+  const fits=batchFits();
+  batchInfo.textContent=fits
+    ? starts.length+' clips · '+clipLength()+' seconds each · ends at '+end.toFixed(1)+'s'
+    : 'Not enough video for '+starts.length+' clips. Reduce the clip count, duration or gap, or choose an earlier starting point.';
+}
 
 fileInput.addEventListener('change',()=>{
   const chosen=fileInput.files&&fileInput.files[0];
@@ -150,8 +216,10 @@ source.addEventListener('loadedmetadata',()=>{
   setStatus(videoDuration>=clipLength()?'Video ready. Choose your clip.':'This video is shorter than the selected clip duration.');
 });
 source.addEventListener('error',()=>setStatus('This video format could not be previewed by your browser. Try an MP4 video encoded with H.264.'));
-startInput.addEventListener('input',()=>setStart(startInput.value));
-slider.addEventListener('input',()=>setStart(slider.value));
+startInput.addEventListener('input',()=>{setStart(startInput.value);updateControls()});
+slider.addEventListener('input',()=>{setStart(slider.value);updateControls()});
+clipCountSelect.addEventListener('change',updateControls);
+gapSelect.addEventListener('change',updateControls);
 durationSelect.addEventListener('change',()=>{
   slider.max=maxStart();setStart(startInput.value);updateControls();
   if(file)setStatus(videoDuration>=clipLength()?'Clip settings updated.':'Choose a shorter duration for this video.');
@@ -184,27 +252,24 @@ function drawCover(ctx,video,w,h){
   const sx=(vw-sw)/2,sy=(vh-sh)/2;
   ctx.drawImage(video,sx,sy,sw,sh,0,0,w,h);
 }
-async function exportClip(){
-  if(!file||recording)return;
+async function renderClip(from,seconds,label,onProgress){
   const mime=supportedMime();
-  if(!mime){setStatus('This browser does not support video recording. Try the latest Chrome.');return}
-  recording=true;updateControls();downloadLink.style.display='none';result.style.display='none';
-  const seconds=clipLength(),from=startAt(),to=from+seconds;
+  if(!mime)throw new Error('This browser does not support video recording. Try the latest Chrome.');
+  const to=from+seconds;
   const canvas=document.createElement('canvas');canvas.width=720;canvas.height=1280;
   const ctx=canvas.getContext('2d');
   const stream=canvas.captureStream(30);
-  let audioContext=null,audioSource=null,audioDestination=null;
+  let audioContext=null;
   const chunks=[];
   let recorder;
   try{
     if(source.captureStream){
       const sourceStream=source.captureStream();
-      const audioTracks=sourceStream.getAudioTracks();
-      audioTracks.forEach(t=>stream.addTrack(t));
+      sourceStream.getAudioTracks().forEach(t=>stream.addTrack(t));
     }else if(window.AudioContext){
       audioContext=new AudioContext();
-      audioSource=audioContext.createMediaElementSource(source);
-      audioDestination=audioContext.createMediaStreamDestination();
+      const audioSource=audioContext.createMediaElementSource(source);
+      const audioDestination=audioContext.createMediaStreamDestination();
       audioSource.connect(audioDestination);
       audioSource.connect(audioContext.destination);
       audioDestination.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
@@ -216,38 +281,59 @@ async function exportClip(){
       recorder.onstop=resolve;
     });
     recorder.start(250);
-    setStatus('Preparing video...');
-    source.pause();source.currentTime=from;
+    source.pause();
+    source.currentTime=from;
     await new Promise((resolve,reject)=>{
       const timeout=setTimeout(()=>reject(new Error('Video seek timed out')),15000);
       const done=()=>{clearTimeout(timeout);source.removeEventListener('seeked',done);resolve()};
       source.addEventListener('seeked',done,{once:true});
-      if(Math.abs(source.currentTime-from)<0.05&&source.readyState>=2){clearTimeout(timeout);source.removeEventListener('seeked',done);resolve()}
-    });
-    await source.play();
-    if(audioContext&&audioContext.state==='suspended')await audioContext.resume();
-    setStatus('Recording clip: 0%');
-    let ended=false;
-    const draw=()=>{
-      if(ended)return;
-      drawCover(ctx,source,canvas.width,canvas.height);
-      const progress=Math.max(0,Math.min(100,((source.currentTime-from)/seconds)*100));
-      setStatus('Recording clip: '+Math.floor(progress)+'%');
-      if(source.currentTime>=to||source.ended){
-        ended=true;source.pause();
-        if(recorder.state!=='inactive')recorder.stop();
-        return;
+      if(Math.abs(source.currentTime-from)<0.05&&source.readyState>=2){
+        clearTimeout(timeout);source.removeEventListener('seeked',done);resolve();
       }
+    });
+    if(audioContext&&audioContext.state==='suspended')await audioContext.resume();
+    await source.play();
+    await new Promise((resolve,reject)=>{
+      let ended=false;
+      const draw=()=>{
+        if(ended)return;
+        drawCover(ctx,source,canvas.width,canvas.height);
+        const progress=Math.max(0,Math.min(100,((source.currentTime-from)/seconds)*100));
+        if(onProgress)onProgress(progress);
+        if(source.currentTime>=to||source.ended){
+          ended=true;source.pause();
+          if(recorder.state!=='inactive')recorder.stop();
+          resolve();
+          return;
+        }
+        requestAnimationFrame(draw);
+      };
+      source.addEventListener('error',()=>reject(new Error('Video playback failed')), {once:true});
       requestAnimationFrame(draw);
-    };
-    requestAnimationFrame(draw);
+    });
     await finished;
     const blob=new Blob(chunks,{type:mime});
     if(!blob.size)throw new Error('The browser created an empty video.');
+    return {blob,mime};
+  }catch(err){
+    if(recorder&&recorder.state!=='inactive'){try{recorder.stop()}catch(_){}}
+    throw err;
+  }finally{
+    source.pause();
+    stream.getTracks().forEach(t=>t.stop());
+    if(audioContext){try{await audioContext.close()}catch(_){}}
+  }
+}
+async function exportClip(){
+  if(!file||recording)return;
+  recording=true;updateControls();downloadLink.style.display='none';result.style.display='none';
+  try{
+    setStatus('Preparing your clip...');
+    const seconds=clipLength(),from=startAt();
+    const output=await renderClip(from,seconds,'single',p=>setStatus('Recording clip: '+Math.floor(p)+'%'));
     if(resultURL)URL.revokeObjectURL(resultURL);
-    resultURL=URL.createObjectURL(blob);
-    const isMp4=mime.toLowerCase().includes('mp4');
-    const ext=isMp4?'mp4':'webm';
+    resultURL=URL.createObjectURL(output.blob);
+    const ext=output.mime.toLowerCase().includes('mp4')?'mp4':'webm';
     downloadLink.href=resultURL;
     downloadLink.download='ShortsAI-'+seconds+'s.'+ext;
     downloadLink.textContent='⬇ Download your '+ext.toUpperCase()+' clip';
@@ -256,15 +342,54 @@ async function exportClip(){
     setStatus('Success! Your '+seconds+'-second vertical '+ext.toUpperCase()+' is ready.');
   }catch(err){
     console.error(err);
-    if(recorder&&recorder.state!=='inactive'){try{recorder.stop()}catch(_){}}
     setStatus('Export failed: '+(err&&err.message?err.message:String(err)));
   }finally{
-    source.pause();stream.getTracks().forEach(t=>t.stop());
-    if(audioContext){try{await audioContext.close()}catch(_){}}
+    recording=false;updateControls();
+  }
+}
+async function generateBatch(){
+  if(!file||recording)return;
+  const starts=batchStarts(),seconds=clipLength();
+  if(!batchFits()){setStatus('The selected clips do not fit inside this video.');return}
+  recording=true;updateControls();
+  clipList.innerHTML='';
+  batchProgress.style.width='0%';
+  const completed=[];
+  try{
+    for(let i=0;i<starts.length;i++){
+      setStatus('Creating clip '+(i+1)+' of '+starts.length+'...');
+      const output=await renderClip(starts[i],seconds,'clip '+(i+1),p=>{
+        const total=((i+p/100)/starts.length)*100;
+        batchProgress.style.width=total+'%';
+        setStatus('Creating clip '+(i+1)+' of '+starts.length+' · '+Math.floor(p)+'%');
+      });
+      completed.push(output);
+      const ext=output.mime.toLowerCase().includes('mp4')?'mp4':'webm';
+      const url=URL.createObjectURL(output.blob);
+      const item=document.createElement('div');
+      item.className='clip-item';
+      const heading=document.createElement('b');
+      heading.textContent='Clip '+(i+1)+' · '+starts[i].toFixed(1)+'s to '+(starts[i]+seconds).toFixed(1)+'s';
+      const detail=document.createElement('div');
+      detail.className='muted';
+      detail.textContent=seconds+' seconds · vertical 9:16 · '+ext.toUpperCase();
+      const link=document.createElement('a');
+      link.href=url;link.download='ShortsAI-clip-'+String(i+1).padStart(2,'0')+'.'+ext;
+      link.textContent='⬇ Download clip '+(i+1);
+      item.append(heading,detail,link);
+      clipList.appendChild(item);
+    }
+    batchProgress.style.width='100%';
+    setStatus('Done! '+completed.length+' clips are ready. Download them one by one below.');
+  }catch(err){
+    console.error(err);
+    setStatus('Batch stopped: '+(err&&err.message?err.message:String(err))+'. Clips already completed remain available below.');
+  }finally{
     recording=false;updateControls();
   }
 }
 exportBtn.addEventListener('click',exportClip);
+batchBtn.addEventListener('click',generateBatch);
 window.addEventListener('beforeunload',()=>{
   if(sourceURL)URL.revokeObjectURL(sourceURL);
   if(resultURL)URL.revokeObjectURL(resultURL);
