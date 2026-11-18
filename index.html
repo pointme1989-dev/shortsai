@@ -224,18 +224,15 @@ async function loadEngine(){
   if(ffmpegLoaded)return;
 
   status.textContent='Loading video engine... Please wait.';
-
   ffmpeg=new FFmpeg();
 
-  const base='https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd';
+  const coreBase='https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd';
+  const workerBase='https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm';
 
   await ffmpeg.load({
-    coreURL:await toBlobURL(
-      base+'/ffmpeg-core.js','text/javascript'
-    ),
-    wasmURL:await toBlobURL(
-      base+'/ffmpeg-core.wasm','application/wasm'
-    )
+    classWorkerURL: await toBlobURL(workerBase+'/worker.js','text/javascript'),
+    coreURL: await toBlobURL(coreBase+'/ffmpeg-core.js','text/javascript'),
+    wasmURL: await toBlobURL(coreBase+'/ffmpeg-core.wasm','application/wasm')
   });
 
   ffmpegLoaded=true;
