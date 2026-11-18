@@ -285,9 +285,25 @@ function supportedMime(){
 function drawCover(ctx,video,w,h){
   const vw=video.videoWidth,vh=video.videoHeight;
   if(!vw||!vh)return;
-  const scale=Math.max(w/vw,h/vh),sw=w/scale,sh=h/scale;
-  const sx=(vw-sw)/2,sy=(vh-sh)/2;
-  ctx.drawImage(video,sx,sy,sw,sh,0,0,w,h);
+  const videoRatio=vw/vh,frameRatio=w/h;
+  ctx.save();
+  if(videoRatio>frameRatio*1.08){
+    // Landscape: fill the background softly, then show the complete original frame.
+    const bgScale=Math.max(w/vw,h/vh);
+    const bgW=vw*bgScale,bgH=vh*bgScale;
+    ctx.filter='blur(28px) brightness(0.62)';
+    ctx.drawImage(video,(w-bgW)/2,(h-bgH)/2,bgW,bgH);
+    ctx.filter='none';
+    const fitScale=Math.min(w/vw,h/vh);
+    const fitW=vw*fitScale,fitH=vh*fitScale;
+    ctx.drawImage(video,(w-fitW)/2,(h-fitH)/2,fitW,fitH);
+  }else{
+    // Portrait or near-vertical: fill the frame with a centered crop.
+    const scale=Math.max(w/vw,h/vh),sw=w/scale,sh=h/scale;
+    const sx=(vw-sw)/2,sy=(vh-sh)/2;
+    ctx.drawImage(video,sx,sy,sw,sh,0,0,w,h);
+  }
+  ctx.restore();
 }
 async function renderClip(from,seconds,label,onProgress){
   const mime=supportedMime();
@@ -311,13 +327,12 @@ async function renderClip(from,seconds,label,onProgress){
       audioSource.connect(audioContext.destination);
       audioDestination.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
     }
-    recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:4500000});
+    recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:6500000});
     recorder.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
     const finished=new Promise((resolve,reject)=>{
       recorder.onerror=e=>reject(e.error||new Error('Recording failed'));
       recorder.onstop=resolve;
     });
-    recorder.start(250);
     source.pause();
     source.currentTime=from;
     await new Promise((resolve,reject)=>{
@@ -328,7 +343,11 @@ async function renderClip(from,seconds,label,onProgress){
         clearTimeout(timeout);source.removeEventListener('seeked',done);resolve();
       }
     });
+    // Draw the exact first frame before recording, so seeking/loading time is
+    // not accidentally included at the beginning of the exported file.
+    drawCover(ctx,source,canvas.width,canvas.height);
     if(audioContext&&audioContext.state==='suspended')await audioContext.resume();
+    recorder.start(250);
     await source.play();
     await new Promise((resolve,reject)=>{
       let ended=false;
