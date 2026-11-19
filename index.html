@@ -68,6 +68,12 @@ video{width:100%;margin-top:13px;border-radius:10px;background:#05070c;max-heigh
 .small{font-size:11px;color:var(--muted);line-height:1.55}
 .notice{background:#201d35;border:1px solid #49416f;padding:12px;border-radius:10px;color:#dcd7ff;font-size:12px;line-height:1.5;margin-top:14px}
 .caption-preview{font-weight:900;text-align:center;font-size:22px;line-height:1.25;padding:16px 10px;border-radius:10px;background:#080b14;color:#fff;text-shadow:2px 2px 3px #000;min-height:64px;display:flex;align-items:center;justify-content:center}
+
+.caption-editor{display:none;margin-top:12px;border:1px solid #293248;border-radius:10px;padding:10px;max-height:340px;overflow:auto;background:#0c1220}
+.caption-row{display:grid;grid-template-columns:minmax(100px,1fr) 64px 64px 36px;gap:5px;align-items:center;margin-bottom:7px}
+.caption-row input{min-width:0;width:100%;padding:7px 5px;font-size:12px;background:#20283a;color:white;border:1px solid #39445e;border-radius:7px}
+.caption-row button{padding:7px 0;font-size:12px;background:#3a2c43}
+.caption-editor-head{display:grid;grid-template-columns:minmax(100px,1fr) 64px 64px 36px;gap:5px;color:#9aa5bd;font-size:10px;margin-bottom:5px}
 footer{text-align:center;color:#69738b;font-size:11px;padding:24px}
 </style>
 </head>
@@ -139,6 +145,13 @@ footer{text-align:center;color:#69738b;font-size:11px;padding:24px}
     <label for="captionStyle">Caption style</label><select id="captionStyle"><option value="classic">Classic white + black outline</option><option value="yellow">Creator yellow</option><option value="box">Dark rounded box</option><option value="pink">Pink highlight</option></select>
     <div class="caption-preview" id="captionPreview">YOUR WORDS APPEAR HERE</div>
     <p class="small" id="captionCount">No subtitles generated yet.</p>
+    <button class="secondary" id="editCaptionsBtn" disabled>✏️ EDIT SUBTITLES</button>
+    <div class="caption-editor" id="captionEditor">
+      <div class="caption-editor-head"><span>Word / text</span><span>Start</span><span>End</span><span></span></div>
+      <div id="captionRows"></div>
+      <button class="secondary" id="addCaptionWordBtn">＋ ADD WORD</button>
+      <p class="small">Edit text and timing in seconds. Changes apply to preview and exported video.</p>
+    </div>
     <button class="secondary" id="transcribeBtn" disabled>🗣️ GENERATE SUBTITLES FOR THIS CLIP</button>
     <p class="small" id="captionStatus">Upload a video and select a clip first.</p>
     <label for="outputPreset">Export video dimensions</label>
@@ -212,6 +225,7 @@ let file=null,sourceURL=null,resultURL=null,videoDuration=0,previewStopHandler=n
 let recording=false;
 let suggestions=[];
 const captionLanguage=document.getElementById('captionLanguage'),captionsEnabled=document.getElementById('captionsEnabled'),captionColor=document.getElementById('captionColor');
+const editCaptionsBtn=document.getElementById('editCaptionsBtn'),captionEditor=document.getElementById('captionEditor'),captionRows=document.getElementById('captionRows'),addCaptionWordBtn=document.getElementById('addCaptionWordBtn');
 const transcribeBtn=document.getElementById('transcribeBtn'),captionStatus=document.getElementById('captionStatus'),captionFont=document.getElementById('captionFont'),captionStyle=document.getElementById('captionStyle'),captionPreview=document.getElementById('captionPreview'),captionCount=document.getElementById('captionCount');
 let captionWords=[],transcriber=null,transcribing=false,captionStart=null,captionDuration=null;
 
@@ -253,7 +267,7 @@ fileInput.addEventListener('change',()=>{
   source.src=sourceURL;source.style.display='block';source.load();
   fileName.textContent='Selected: '+chosen.name+' ('+(chosen.size/1048576).toFixed(1)+' MB)';
   result.style.display='none';downloadLink.style.display='none';
-  suggestionList.innerHTML='';suggestions=[];captionWords=[];captionStart=null;captionDuration=null;captionCount.textContent='No subtitles generated yet.';captionStatus.textContent='Video selected. Generate subtitles for the selected clip.';analysisInfo.textContent='Ready to scan the video.';
+  suggestionList.innerHTML='';suggestions=[];captionWords=[];captionStart=null;captionDuration=null;captionCount.textContent='No subtitles generated yet.';captionEditor.style.display='none';editCaptionsBtn.disabled=true;captionStatus.textContent='Video selected. Generate subtitles for the selected clip.';analysisInfo.textContent='Ready to scan the video.';
   highlightBtn.disabled=true;
   setStatus('Reading video information...');
   updateControls();
@@ -265,12 +279,12 @@ source.addEventListener('loadedmetadata',()=>{
   setStatus(videoDuration>=clipLength()?'Video ready. Choose your clip.':'This video is shorter than the selected clip duration.');
 });
 source.addEventListener('error',()=>setStatus('This video format could not be previewed by your browser. Try an MP4 video encoded with H.264.'));
-startInput.addEventListener('input',()=>{setStart(startInput.value);if(captionWords.length&&(Math.abs(startAt()-captionStart)>.5||clipLength()!==captionDuration)){captionWords=[];captionStart=null;captionDuration=null;captionCount.textContent='Clip selection changed. Generate subtitles again.';captionStatus.textContent='Subtitles are cleared because the selected clip changed.'}updateControls()});
+startInput.addEventListener('input',()=>{setStart(startInput.value);if(captionWords.length&&(Math.abs(startAt()-captionStart)>.5||clipLength()!==captionDuration)){captionWords=[];captionStart=null;captionDuration=null;captionCount.textContent='Clip selection changed. Generate subtitles again.';captionEditor.style.display='none';editCaptionsBtn.disabled=true;captionStatus.textContent='Subtitles are cleared because the selected clip changed.'}updateControls()});
 slider.addEventListener('input',()=>{setStart(slider.value);updateControls()});
 clipCountSelect.addEventListener('change',()=>{updateControls();updateSelectionCount();});
 gapSelect.addEventListener('change',updateControls);
 durationSelect.addEventListener('change',()=>{
-  slider.max=maxStart();setStart(startInput.value);if(captionWords.length&&clipLength()!==captionDuration){captionWords=[];captionStart=null;captionDuration=null;captionCount.textContent='Clip duration changed. Generate subtitles again.';captionStatus.textContent='Subtitles cleared because clip duration changed.'}updateControls();
+  slider.max=maxStart();setStart(startInput.value);if(captionWords.length&&clipLength()!==captionDuration){captionWords=[];captionStart=null;captionDuration=null;captionCount.textContent='Clip duration changed. Generate subtitles again.';captionEditor.style.display='none';editCaptionsBtn.disabled=true;captionStatus.textContent='Subtitles cleared because clip duration changed.'}updateControls();
   if(file)setStatus(videoDuration>=clipLength()?'Clip settings updated.':'Choose a shorter duration for this video.');
 });
 
@@ -330,22 +344,44 @@ function drawCaptions(ctx,localTime,w,h){
   tokens.forEach((t,i)=>{const fs=(t.active?size*1.08:size)*scale;ctx.font='900 '+fs+'px '+font;ctx.lineJoin='round';ctx.lineWidth=7*scale;ctx.strokeStyle='rgba(0,0,0,.96)';if(style!=='box')ctx.strokeText(t.word,x,y);ctx.fillStyle=t.active?highlight:(style==='pink'?'#ffc2e0':'#fff');ctx.fillText(t.word,x,y);x+=scaled[i]+10*scale;});ctx.restore();
 }
 function updateCaptionPreview(){captionPreview.style.fontFamily=captionFont.value;const st=captionStyle.value;captionPreview.style.color=captionColor.value;captionPreview.style.background=st==='box'?'#303030':'#080b14';captionPreview.style.textShadow=st==='box'?'none':'2px 2px 3px #000, -1px -1px 0 #000';}
+function renderCaptionEditor(){
+  captionRows.innerHTML='';
+  captionWords.forEach((word,index)=>{
+    const row=document.createElement('div');row.className='caption-row';
+    const textInput=document.createElement('input');textInput.type='text';textInput.value=word.text;textInput.setAttribute('aria-label','Caption text '+(index+1));
+    textInput.addEventListener('input',()=>{captionWords[index].text=textInput.value;captionStatus.textContent='Subtitle edits applied. They will be used in preview and export.';});
+    const startInput=document.createElement('input');startInput.type='number';startInput.step='0.05';startInput.min='0';startInput.value=Number(word.start.toFixed(2));startInput.setAttribute('aria-label','Start time '+(index+1));
+    startInput.addEventListener('change',()=>{const n=Number(startInput.value);if(Number.isFinite(n)&&n>=0){captionWords[index].start=n;captionStatus.textContent='Timing edits applied.';}else startInput.value=captionWords[index].start;});
+    const endInput=document.createElement('input');endInput.type='number';endInput.step='0.05';endInput.min='0';endInput.value=Number(word.end.toFixed(2));endInput.setAttribute('aria-label','End time '+(index+1));
+    endInput.addEventListener('change',()=>{const n=Number(endInput.value);if(Number.isFinite(n)&&n>=0){captionWords[index].end=n;captionStatus.textContent='Timing edits applied.';}else endInput.value=captionWords[index].end;});
+    const del=document.createElement('button');del.type='button';del.textContent='×';del.title='Delete word';del.addEventListener('click',()=>{captionWords.splice(index,1);renderCaptionEditor();captionCount.textContent=captionWords.length+' editable words remaining.';});
+    row.append(textInput,startInput,endInput,del);captionRows.appendChild(row);
+  });
+}
+editCaptionsBtn.addEventListener('click',()=>{captionEditor.style.display=captionEditor.style.display==='block'?'none':'block';if(captionEditor.style.display==='block')renderCaptionEditor();});
+addCaptionWordBtn.addEventListener('click',()=>{const last=captionWords[captionWords.length-1];const start=last?Math.max(0,last.end):0;captionWords.push({text:'new word',start,end:start+0.5});renderCaptionEditor();captionCount.textContent=captionWords.length+' editable words.';captionStatus.textContent='New caption word added. Edit its text and timing.';});
 captionFont.addEventListener('change',updateCaptionPreview);captionStyle.addEventListener('change',updateCaptionPreview);captionColor.addEventListener('change',updateCaptionPreview);captionsEnabled.addEventListener('change',()=>{captionStatus.textContent=captionsEnabled.value==='off'?'Captions are disabled for export.':'Captions enabled for export.'});
 async function generateSubtitles(fromOverride=null,durationOverride=null,internal=false){
-  if(!file||(recording&&!internal)||transcribing)return;transcribing=true;updateControls();captionWords=[];captionStart=fromOverride===null?startAt():fromOverride;captionDuration=durationOverride===null?clipLength():durationOverride;captionStatus.textContent='Loading multilingual speech model (first download is larger)...';captionCount.textContent='';
+  if(!file||(recording&&!internal)||transcribing)return;transcribing=true;updateControls();captionWords=[];captionStart=fromOverride===null?startAt():fromOverride;captionDuration=durationOverride===null?clipLength():durationOverride;captionStatus.textContent='Loading multilingual speech model (first download is larger)...';captionCount.textContent='';captionEditor.style.display='none';editCaptionsBtn.disabled=true;
   let ac=null;
   try{
     if(!transcriber){const mod=await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1');mod.env.allowLocalModels=false;mod.env.useBrowserCache=true;transcriber=await mod.pipeline('automatic-speech-recognition','Xenova/whisper-small',{dtype:'q8',device:'wasm',progress_callback:p=>{if(p.status==='progress'&&p.total)captionStatus.textContent='Downloading multilingual Whisper Small: '+Math.round(p.loaded/p.total*100)+'%';}});}
     captionStatus.textContent='Decoding audio directly from the uploaded file (no video playback)...';
     ac=new (window.AudioContext||window.webkitAudioContext)();
+    captionStatus.textContent='Decoding audio for the selected clip...';
     const decoded=await ac.decodeAudioData(await file.arrayBuffer());
     const srcRate=decoded.sampleRate,targetRate=16000,begin=Math.floor(captionStart*srcRate),finish=Math.min(decoded.length,Math.floor((captionStart+captionDuration)*srcRate));
     if(finish<=begin)throw new Error('Selected clip audio range is empty.');
-    const monoLength=finish-begin,mono=new Float32Array(monoLength);
-    for(let ch=0;ch<decoded.numberOfChannels;ch++){const d=decoded.getChannelData(ch);for(let i=0;i<monoLength;i++)mono[i]+=d[begin+i]/decoded.numberOfChannels;}
-    const outLen=Math.floor(monoLength*targetRate/srcRate),samples=new Float32Array(outLen);
-    // Linear resampling into Whisper's 16 kHz input; selected clip only.
-    for(let i=0;i<outLen;i++){const pos=i*srcRate/targetRate,lo=Math.floor(pos),hi=Math.min(lo+1,monoLength-1),frac=pos-lo;samples[i]=mono[lo]*(1-frac)+mono[hi]*frac;}
+    const clipSamples=finish-begin,outLen=Math.floor(clipSamples*targetRate/srcRate),samples=new Float32Array(outLen);
+    const channels=Array.from({length:decoded.numberOfChannels},(_,ch)=>decoded.getChannelData(ch));
+    captionStatus.textContent='Preparing audio for transcription...';
+    // Downmix and resample in one pass to avoid allocating a separate mono buffer.
+    for(let i=0;i<outLen;i++){
+      const pos=i*srcRate/targetRate,lo=Math.floor(pos),hi=Math.min(lo+1,clipSamples-1),frac=pos-lo;
+      let sample=0;
+      for(let ch=0;ch<channels.length;ch++)sample+=(channels[ch][begin+lo]*(1-frac)+channels[ch][begin+hi]*frac)/channels.length;
+      samples[i]=sample;
+    }
     await ac.close();ac=null;
     captionStatus.textContent='Transcribing '+(captionLanguage.value==='hindi'?'Hindi':captionLanguage.value==='english'?'English':'speech')+'...';
     // Whisper in Transformers.js expects language names (e.g. 'hindi', 'english'),
@@ -355,7 +391,7 @@ async function generateSubtitles(fromOverride=null,durationOverride=null,interna
     else if(captionLanguage.value==='english') opts.language='english';
     const out=await transcriber(samples,opts);
     captionWords=(out.chunks||[]).map(c=>({text:(c.text||'').trim(),start:Number(c.timestamp?.[0]),end:Number(c.timestamp?.[1])})).filter(w=>w.text&&Number.isFinite(w.start)&&Number.isFinite(w.end)&&w.end>=w.start);
-    if(!captionWords.length){captionStatus.textContent='Transcription returned no usable word timestamps. Try a shorter clip or another language setting.';captionCount.textContent=(out.text||'No speech detected.');}else{captionCount.textContent=captionWords.length+' words timed for this selected clip. Captions will be burned into export.';captionStatus.textContent='Subtitles ready for this clip. Captions ON/OFF is controlled in Clip settings; export the same clip range to burn them in.';}
+    if(!captionWords.length){captionStatus.textContent='Transcription returned no usable word timestamps. Try a shorter clip or another language setting.';captionCount.textContent=(out.text||'No speech detected.');}else{captionCount.textContent=captionWords.length+' words timed for this selected clip. Captions will be burned into export.';editCaptionsBtn.disabled=false;renderCaptionEditor();captionStatus.textContent='Subtitles ready for this clip. Captions ON/OFF is controlled in Clip settings; export the same clip range to burn them in.';}
   }catch(err){console.error(err);captionStatus.textContent='Subtitle generation failed: '+(err.message||String(err));captionCount.textContent='';captionWords=[];}
   finally{if(ac){try{await ac.close()}catch(_){}}transcribing=false;updateControls();}
 }
@@ -472,17 +508,22 @@ async function analyseHighlights(){
   recording=true;updateControls();
   analyzeBtn.disabled=true;highlightBtn.disabled=true;
   suggestionList.innerHTML='';suggestions=[];
-  let scanVideo=null, scanUrl=null;
+  const scanVideo=source;
+  const originalTime=scanVideo.currentTime||0;
+  const wasPlaying=!scanVideo.paused;
   try{
-    // Use a separate decoder for analysis so preview playback/pausing never controls the scan.
-    scanVideo=document.createElement('video');
-    scanVideo.muted=true;scanVideo.preload='auto';scanVideo.playsInline=true;
-    scanUrl=URL.createObjectURL(file);scanVideo.src=scanUrl;
-    await new Promise((resolve,reject)=>{
-      const timeout=setTimeout(()=>reject(new Error('Analysis video loading timed out')),20000);
-      scanVideo.addEventListener('loadedmetadata',()=>{clearTimeout(timeout);resolve()},{once:true});
-      scanVideo.addEventListener('error',()=>{clearTimeout(timeout);reject(new Error('Could not load video for analysis'))},{once:true});
-    });
+    // Reuse the already-loaded video element to avoid loading a second decoder on mobile.
+    scanVideo.pause();
+    if(scanVideo.readyState<2){
+      await new Promise((resolve,reject)=>{
+        const timeout=setTimeout(()=>{cleanup();reject(new Error('Video is not ready for analysis. Please wait for it to load and try again.'))},20000);
+        function cleanup(){clearTimeout(timeout);scanVideo.removeEventListener('loadeddata',ready);scanVideo.removeEventListener('error',failed);}
+        function ready(){cleanup();resolve()}
+        function failed(){cleanup();reject(new Error('Could not load the selected video for highlights.'))}
+        scanVideo.addEventListener('loadeddata',ready,{once:true});
+        scanVideo.addEventListener('error',failed,{once:true});
+      });
+    }
     const scanDuration=scanVideo.duration||videoDuration;
     const canvas=document.createElement('canvas');canvas.width=48;canvas.height=27;
     const ctx=canvas.getContext('2d',{willReadFrequently:true});
@@ -504,18 +545,38 @@ async function analyseHighlights(){
       let diff=0;
       if(previous){for(let j=0;j<current.length;j++)diff+=Math.abs(current[j]-previous[j]);diff=diff/current.length/255;}
       scores.push({time:t,score:diff});previous=current;
-      analysisInfo.textContent='Scanning video independently: '+Math.min(100,Math.round((i+1)/total*100))+'%';
+      analysisInfo.textContent='Scanning video: '+Math.min(100,Math.round((i+1)/total*100))+'%';
     }
     const length=clipLength();
     const stepWindow=Math.max(2,Math.min(5,length/4));
+    const percentile=(values,p)=>{
+      if(!values.length)return 0;
+      const sorted=values.slice().sort((a,b)=>a-b);
+      return sorted[Math.min(sorted.length-1,Math.max(0,Math.floor((sorted.length-1)*p)))];
+    };
+    // Smooth adjacent frame-difference values so a single noisy frame does not dominate.
+    const smooth=scores.map((item,i)=>({time:item.time,score:(scores[Math.max(0,i-1)].score+item.score+scores[Math.min(scores.length-1,i+1)].score)/3}));
+    const frameP90=percentile(scores.map(x=>x.score),0.90);
+    const cutThreshold=Math.max(0.08,frameP90*1.7);
     const windows=[];
     for(let start=0;start+length<=scanDuration+0.01;start+=stepWindow){
-      const inside=scores.filter(x=>x.time>=start&&x.time<start+length);
+      const inside=smooth.filter(x=>x.time>=start&&x.time<start+length);
+      const rawInside=scores.filter(x=>x.time>=start&&x.time<start+length);
       if(!inside.length)continue;
       const avg=inside.reduce((sum,x)=>sum+x.score,0)/inside.length;
-      const peak=Math.max(...inside.map(x=>x.score));
-      windows.push({start,score:avg*0.75+peak*0.25});
+      const high=percentile(inside.map(x=>x.score),0.75);
+      const cuts=rawInside.filter(x=>x.score>=cutThreshold).length;
+      windows.push({start,avg,high,cuts});
     }
+    const avgScale=Math.max(0.0001,percentile(windows.map(x=>x.avg),0.85));
+    const highScale=Math.max(0.0001,percentile(windows.map(x=>x.high),0.95));
+    // Rank by sustained motion, bursts of activity, and scene changes—not one frame alone.
+    windows.forEach(w=>{
+      const sustained=Math.min(1,w.avg/avgScale);
+      const burst=Math.min(1,w.high/highScale);
+      const sceneChange=Math.min(1,w.cuts/2);
+      w.score=sustained*0.60+burst*0.25+sceneChange*0.15;
+    });
     windows.sort((a,b)=>b.score-a.score);
     const chosen=[];
     for(const w of windows){
@@ -538,9 +599,9 @@ async function analyseHighlights(){
     }
   }catch(err){console.error(err);analysisInfo.textContent='Analysis could not finish: '+(err.message||String(err));}
   finally{
-    if(scanVideo){try{scanVideo.pause();scanVideo.removeAttribute('src');scanVideo.load();}catch(_){}}
-    if(scanUrl)URL.revokeObjectURL(scanUrl);
+    try{scanVideo.pause();if(scanVideo.readyState>=2)scanVideo.currentTime=Math.min(originalTime,Math.max(0,videoDuration-0.05));}catch(_){}
     recording=false;updateControls();analyzeBtn.disabled=!file||videoDuration<clipLength();
+    if(wasPlaying&&file){try{await scanVideo.play()}catch(_){}}
   }
 }
 function formatTime(seconds){
@@ -588,4 +649,4 @@ window.addEventListener('beforeunload',()=>{
 })();
 </script>
 </body>
-    </html>
+</html>
