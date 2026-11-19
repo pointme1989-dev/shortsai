@@ -120,7 +120,8 @@ footer{text-align:center;color:#69738b;font-size:11px;padding:24px}
     </div>
     <label for="captionsEnabled">Subtitles in exported video</label><select id="captionsEnabled"><option value="on" selected>ON — burn captions into video</option><option value="off">OFF — no captions</option></select>
     <label for="captionFailMode">If subtitles fail for a clip</label><select id="captionFailMode"><option value="skip" selected>Export clip anyway (without captions)</option><option value="stop">Skip the clip (show error)</option></select>
-    <label for="captionModel">Speech model</label><select id="captionModel"><option value="small" selected>Standard (Whisper Small, works everywhere)</option><option value="turbo">Better Hindi (Whisper Large-v3 Turbo, needs Chrome with GPU, ~800 MB download)</option></select>
+    <label for="captionModel">Speech model</label><select id="captionModel"><option value="small" selected>Local Whisper Small (download once; runs on device)</option><option value="base">Lightweight Whisper Base (smaller download, lower accuracy)</option></select>
+
     <label for="captionLanguage">Speech language</label><select id="captionLanguage"><option value="auto">Auto-detect</option><option value="hindi" selected>Hindi → Roman Hindi (English letters)</option><option value="english">English</option></select>
     <label for="captionFont">Subtitle font</label><select id="captionFont">
       <option value="Impact,Haettenschweiler,'Arial Narrow Bold',sans-serif">Impact / GTA-style bold</option>
@@ -144,6 +145,7 @@ footer{text-align:center;color:#69738b;font-size:11px;padding:24px}
       <option value="#4d9dff">Electric blue</option><option value="#ffb6d9">Bubblegum pink</option>
       <option value="#c8ff4d">Lime</option><option value="#f5f5f5">Soft white</option>
     </select>
+    <label for="wordHighlightAnimation">Word highlight animation</label><select id="wordHighlightAnimation"><option value="scale" selected>Scale pop — active word grows</option><option value="color">Color pop — active word changes colour only</option><option value="bounce">Bounce — quick pop then settle</option></select>
     <label for="captionStyle">Caption style</label><select id="captionStyle"><option value="classic">Classic white + black outline</option><option value="yellow">Creator yellow</option><option value="box">Dark rounded box</option><option value="pink">Pink highlight</option></select>
     <div class="caption-preview" id="captionPreview">YOUR WORDS APPEAR HERE</div>
     <p class="small" id="captionCount">No subtitles generated yet.</p>
@@ -170,6 +172,15 @@ footer{text-align:center;color:#69738b;font-size:11px;padding:24px}
       <div><label for="outputHeight">Height (px)</label><input id="outputHeight" type="number" min="240" max="1920" step="2" value="1280"></div>
     </div>
     <p class="small" id="dimensionInfo">Output: 720 × 1280 px</p>
+    <div class="panel" id="cropPanel" style="background:#0d1423;margin-top:12px">
+      <h2>🖼️ Manual framing</h2>
+      <canvas id="cropPreview" width="360" height="640" style="width:100%;max-height:420px;object-fit:contain;background:#05070c;border-radius:10px;display:block"></canvas>
+      <label for="cropZoom">Zoom <span id="cropZoomLabel">1.00×</span></label><input id="cropZoom" type="range" min="1" max="3" step="0.01" value="1">
+      <label for="cropX">Horizontal framing</label><input id="cropX" type="range" min="-1" max="1" step="0.01" value="0">
+      <label for="cropY">Vertical framing</label><input id="cropY" type="range" min="-1" max="1" step="0.01" value="0">
+      <button class="secondary" id="cropReset" type="button">↺ Reset framing</button>
+      <p class="small">Adjust zoom and move the frame before exporting. Preview shows your current crop.</p>
+    </div>
     <button class="secondary" id="previewBtn" disabled>▶ Preview selected clip</button>
     <div class="panel" style="margin-top:16px;background:#0d1423">
       <h2>✨ Find highlight moments</h2>
@@ -192,7 +203,7 @@ footer{text-align:center;color:#69738b;font-size:11px;padding:24px}
 
   <div class="features">
     <div class="feature"><b>✂️ Clip trimming</b>Choose the start and duration</div>
-    <div class="feature"><b>📱 9:16 framing</b>Centre-cropped vertical output</div>
+    <div class="feature"><b>📱 Manual framing</b>Zoom and pan crop before export</div>
     <div class="feature"><b>💬 AI captions</b>Automatic word-timed subtitles</div>
     <div class="feature"><b>🤖 AI highlights</b>Not implemented yet</div>
   </div>
@@ -208,6 +219,7 @@ const transcribeVideo=document.createElement('video');transcribeVideo.playsInlin
 const result=document.getElementById('resultVideo');
 const durationSelect=document.getElementById('duration');
 const outputPreset=document.getElementById('outputPreset'),customDimensions=document.getElementById('customDimensions'),outputWidth=document.getElementById('outputWidth'),outputHeight=document.getElementById('outputHeight'),dimensionInfo=document.getElementById('dimensionInfo');
+const cropPreview=document.getElementById('cropPreview'),cropZoom=document.getElementById('cropZoom'),cropX=document.getElementById('cropX'),cropY=document.getElementById('cropY'),cropZoomLabel=document.getElementById('cropZoomLabel'),cropReset=document.getElementById('cropReset');
 const startInput=document.getElementById('startTime');
 const slider=document.getElementById('startSlider');
 const status=document.getElementById('status');
@@ -229,6 +241,7 @@ let suggestions=[];
 const captionFailMode=document.getElementById('captionFailMode'),captionLanguage=document.getElementById('captionLanguage'),captionsEnabled=document.getElementById('captionsEnabled'),captionColor=document.getElementById('captionColor');
 const editCaptionsBtn=document.getElementById('editCaptionsBtn'),captionEditor=document.getElementById('captionEditor'),captionRows=document.getElementById('captionRows'),addCaptionWordBtn=document.getElementById('addCaptionWordBtn'),captionClipContext=document.getElementById('captionClipContext');
 const transcribeBtn=document.getElementById('transcribeBtn'),captionStatus=document.getElementById('captionStatus'),captionFont=document.getElementById('captionFont'),captionStyle=document.getElementById('captionStyle'),captionPreview=document.getElementById('captionPreview'),captionCount=document.getElementById('captionCount');
+const wordHighlightAnimation=document.getElementById('wordHighlightAnimation');
 let captionWords=[],transcriber=null,transcribing=false,captionStart=null,captionDuration=null;
 
 function outputSize(){
@@ -239,8 +252,18 @@ function outputSize(){
 }
 function updateDimensionUI(){
   customDimensions.style.display=outputPreset.value==='custom'?'grid':'none';
-  const {w,h}=outputSize();dimensionInfo.textContent='Output: '+w+' × '+h+' px';
+  const {w,h}=outputSize();dimensionInfo.textContent='Output: '+w+' × '+h+' px';updateCropPreview();
 }
+function updateCropPreview(){
+  if(!cropPreview||!source.videoWidth||!source.videoHeight)return;
+  const size=outputSize(),ratio=size.w/size.h;const maxW=360,maxH=420;
+  cropPreview.width=Math.round(Math.min(maxW,maxH*ratio));cropPreview.height=Math.round(cropPreview.width/ratio);
+  if(cropPreview.height>maxH){cropPreview.height=maxH;cropPreview.width=Math.round(maxH*ratio)}
+  const c=cropPreview.getContext('2d');drawCover(c,source,cropPreview.width,cropPreview.height);
+  if(cropZoomLabel)cropZoomLabel.textContent=(Number(cropZoom.value)||1).toFixed(2)+'×';
+}
+[cropZoom,cropX,cropY].forEach(el=>el&&el.addEventListener('input',updateCropPreview));
+cropReset&&cropReset.addEventListener('click',()=>{cropZoom.value=1;cropX.value=0;cropY.value=0;updateCropPreview()});
 function clipLength(){const n=Number(durationSelect.value);return Number.isFinite(n)&&n>0?n:30}
 function maxStart(){return Number.isFinite(videoDuration)?Math.max(0,videoDuration-clipLength()):0}
 function startAt(){const raw=Number(startInput.value);const safe=Number.isFinite(raw)&&raw>=0?raw:0;const limit=maxStart();return Number.isFinite(limit)?Math.max(0,Math.min(safe,limit)):0}
@@ -275,11 +298,12 @@ fileInput.addEventListener('change',()=>{
   updateControls();
 });
 source.addEventListener('loadedmetadata',()=>{
-  videoDuration=source.duration;
+  videoDuration=source.duration;updateCropPreview();
   videoLength.textContent='Video length: '+videoDuration.toFixed(1)+' seconds';
   slider.max=maxStart();setStart(0);updateControls();
   setStatus(videoDuration>=clipLength()?'Video ready. Choose your clip.':'This video is shorter than the selected clip duration.');
 });
+source.addEventListener('seeked',updateCropPreview);source.addEventListener('timeupdate',()=>{if(source.paused)updateCropPreview()});
 source.addEventListener('error',()=>setStatus('This video format could not be previewed by your browser. Try an MP4 video encoded with H.264.'));
 startInput.addEventListener('input',()=>{setStart(startInput.value);if(captionWords.length&&(Math.abs(startAt()-captionStart)>.5||clipLength()!==captionDuration)){captionWords=[];captionStart=null;captionDuration=null;captionCount.textContent='Clip selection changed. Generate subtitles again.';captionEditor.style.display='none';editCaptionsBtn.disabled=true;captionStatus.textContent='Subtitles are cleared because the selected clip changed.'}updateControls()});
 slider.addEventListener('input',()=>{setStart(slider.value);updateControls()});
@@ -313,37 +337,33 @@ function supportedMime(){
 function drawCover(ctx,video,w,h){
   const vw=video.videoWidth,vh=video.videoHeight;
   if(!vw||!vh)return;
-  const videoRatio=vw/vh,frameRatio=w/h;
-  ctx.save();
-  if(videoRatio>frameRatio*1.08){
-    // Landscape: fill the background softly, then show the complete original frame.
-    const bgScale=Math.max(w/vw,h/vh);
-    const bgW=vw*bgScale,bgH=vh*bgScale;
-    ctx.filter='blur(28px) brightness(0.62)';
-    ctx.drawImage(video,(w-bgW)/2,(h-bgH)/2,bgW,bgH);
-    ctx.filter='none';
-    const fitScale=Math.min(w/vw,h/vh);
-    const fitW=vw*fitScale,fitH=vh*fitScale;
-    ctx.drawImage(video,(w-fitW)/2,(h-fitH)/2,fitW,fitH);
-  }else{
-    // Portrait or near-vertical: fill the frame with a centered crop.
-    const scale=Math.max(w/vw,h/vh),sw=w/scale,sh=h/scale;
-    const sx=(vw-sw)/2,sy=(vh-sh)/2;
-    ctx.drawImage(video,sx,sy,sw,sh,0,0,w,h);
-  }
+  const zoom=Math.max(1,Math.min(3,Number(cropZoom&&cropZoom.value)||1));
+  const base=Math.max(w/vw,h/vh),scale=base*zoom;
+  const sw=w/scale,sh=h/scale;
+  const extraX=Math.max(0,vw-sw),extraY=Math.max(0,vh-sh);
+  const panX=Number(cropX&&cropX.value)||0,panY=Number(cropY&&cropY.value)||0;
+  const sx=Math.max(0,Math.min(extraX,(extraX/2)+(panX*extraX/2)));
+  const sy=Math.max(0,Math.min(extraY,(extraY/2)+(panY*extraY/2)));
+  ctx.save();ctx.clearRect(0,0,w,h);
+  ctx.drawImage(video,sx,sy,sw,sh,0,0,w,h);
   ctx.restore();
 }
+
 function drawCaptions(ctx,localTime,w,h){
   if(!captionWords.length||captionStart===null)return;
   const active=captionWords.filter(x=>localTime>=x.start&&localTime<=x.end);
   if(!active.length)return;
   const current=active[active.length-1],recent=captionWords.filter(x=>x.start<=localTime&&x.end>=localTime-1.7).slice(-4);
   const style=captionStyle.value,font=captionFont.value,highlight=captionColor.value,size=38;ctx.save();ctx.textAlign='left';ctx.textBaseline='middle';ctx.font='900 '+size+'px '+font;
+  const elapsed=Math.max(0,Math.min(1,(localTime-current.start)/Math.max(.01,current.end-current.start)));
+  let activeScale=1.0;
+  if(wordHighlightAnimation&&wordHighlightAnimation.value==='scale')activeScale=1.08+0.10*Math.sin(Math.PI*elapsed);
+  if(wordHighlightAnimation&&wordHighlightAnimation.value==='bounce')activeScale=1.08+0.14*Math.sin(Math.PI*Math.min(1,elapsed*3))*Math.max(0,1-elapsed*1.6);
   const tokens=recent.map(x=>({word:x.text.trim(),active:x===current})).filter(x=>x.word);const maxWidth=w-70;
-  const widths=tokens.map(t=>{ctx.font='900 '+(t.active?size*1.08:size)+'px '+font;return ctx.measureText(t.word).width});
+  const widths=tokens.map(t=>{ctx.font='900 '+(t.active?size*activeScale:size)+'px '+font;return ctx.measureText(t.word).width});
   const total=widths.reduce((a,b)=>a+b,0)+(tokens.length-1)*12,scale=total>maxWidth?maxWidth/total:1,scaled=widths.map(v=>v*scale),sum=scaled.reduce((a,b)=>a+b,0)+(tokens.length-1)*10*scale;
   let x=(w-sum)/2,y=h*.77;if(style==='box'){ctx.fillStyle='rgba(0,0,0,.78)';ctx.beginPath();ctx.roundRect(Math.max(18,x-16),y-31,Math.min(w-36,sum+32),62,13);ctx.fill();}
-  tokens.forEach((t,i)=>{const fs=(t.active?size*1.08:size)*scale;ctx.font='900 '+fs+'px '+font;ctx.lineJoin='round';ctx.lineWidth=7*scale;ctx.strokeStyle='rgba(0,0,0,.96)';if(style!=='box')ctx.strokeText(t.word,x,y);ctx.fillStyle=t.active?highlight:(style==='pink'?'#ffc2e0':'#fff');ctx.fillText(t.word,x,y);x+=scaled[i]+10*scale;});ctx.restore();
+  tokens.forEach((t,i)=>{const fs=(t.active?size*activeScale:size)*scale;ctx.font='900 '+fs+'px '+font;ctx.lineJoin='round';ctx.lineWidth=7*scale;ctx.strokeStyle='rgba(0,0,0,.96)';if(style!=='box')ctx.strokeText(t.word,x,y);ctx.fillStyle=t.active?highlight:(style==='pink'?'#ffc2e0':'#fff');ctx.fillText(t.word,x,y);x+=scaled[i]+10*scale;});ctx.restore();
 }
 function updateCaptionPreview(){captionPreview.style.fontFamily=captionFont.value;const st=captionStyle.value;captionPreview.style.color=captionColor.value;captionPreview.style.background=st==='box'?'#303030':'#080b14';captionPreview.style.textShadow=st==='box'?'none':'2px 2px 3px #000, -1px -1px 0 #000';}
 function renderCaptionEditor(){
@@ -363,7 +383,7 @@ function renderCaptionEditor(){
 }
 editCaptionsBtn.addEventListener('click',()=>{captionEditor.style.display=captionEditor.style.display==='block'?'none':'block';if(captionEditor.style.display==='block')renderCaptionEditor();});
 addCaptionWordBtn.addEventListener('click',()=>{const last=captionWords[captionWords.length-1];const start=last?Math.max(0,last.end):0;captionWords.push({text:'new word',start,end:start+0.5});renderCaptionEditor();captionCount.textContent=captionWords.length+' editable words.';captionStatus.textContent='New caption word added. Edit its text and timing.';});
-captionFont.addEventListener('change',updateCaptionPreview);captionStyle.addEventListener('change',updateCaptionPreview);captionColor.addEventListener('change',updateCaptionPreview);captionsEnabled.addEventListener('change',()=>{captionStatus.textContent=captionsEnabled.value==='off'?'Captions are disabled for export.':'Captions enabled for export.'});
+captionFont.addEventListener('change',updateCaptionPreview);captionStyle.addEventListener('change',updateCaptionPreview);captionColor.addEventListener('change',updateCaptionPreview);wordHighlightAnimation&&wordHighlightAnimation.addEventListener('change',()=>{captionStatus.textContent='Word highlight animation updated. It will be applied during export.';});captionsEnabled.addEventListener('change',()=>{captionStatus.textContent=captionsEnabled.value==='off'?'Captions are disabled for export.':'Captions enabled for export.'});
 async function captureVideoAudioSamples(from,duration,targetRate=16000){
   if(!source||!source.captureStream)throw new Error('This browser cannot capture video audio. Use a recent Chrome browser.');
   if(!Number.isFinite(from)||from<0)throw new Error('Invalid clip start time. Please reselect the video and wait until its duration appears.');
@@ -462,6 +482,14 @@ async function decodeFileSamples(from,duration,targetRate){
   if(i1-i0<targetRate*0.5)throw new Error('Decoded audio segment too short');
   return s.slice(i0,i1);
 }
+
+function samplesToWav(samples,rate){
+  const n=samples.length,buf=new ArrayBuffer(44+n*2),v=new DataView(buf);
+  const w=(o,t)=>{for(let i=0;i<t.length;i++)v.setUint8(o+i,t.charCodeAt(i));};
+  w(0,'RIFF');v.setUint32(4,36+n*2,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,rate,true);v.setUint32(28,rate*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,n*2,true);
+  for(let i=0;i<n;i++){const x=Math.max(-1,Math.min(1,samples[i]));v.setInt16(44+i*2,x<0?x*0x8000:x*0x7fff,true);}
+  return new Blob([buf],{type:'audio/wav'});
+}
 const transcriberCache={};
 let speechLoadingPromise=null;
 function withTimeout(promise,ms,label){
@@ -497,9 +525,8 @@ async function loadTranscriber(){
     captionStatus.textContent='Starting model download/initialization...';
     let t;
     try{
-      const pipelinePromise=choice==='turbo'
-        ? (async()=>{if(!navigator.gpu)throw new Error('WebGPU is not available in this browser. Use the Standard model or update Chrome.');return mod.pipeline('automatic-speech-recognition','onnx-community/whisper-large-v3-turbo',{dtype:{encoder_model:'fp16',decoder_model_merged:'q4'},device:'webgpu',progress_callback:prog});})()
-        : mod.pipeline('automatic-speech-recognition','Xenova/whisper-small',{dtype:'q8',device:'wasm',progress_callback:prog});
+      const modelName=choice==='base'?'Xenova/whisper-base':'Xenova/whisper-small';
+      const pipelinePromise=mod.pipeline('automatic-speech-recognition',modelName,{dtype:'q8',device:'wasm',progress_callback:prog});
       t=await withTimeout(pipelinePromise,180000,'Speech model loading');
     }catch(e){throw new Error('Model initialization failed: '+(e.message||e));}
     transcriberCache[choice]=t;return t;
@@ -533,7 +560,7 @@ async function generateSubtitles(fromOverride=null,durationOverride=null,interna
     if(!Number.isFinite(captionStart)||captionStart<0||!Number.isFinite(captionDuration)||captionDuration<=0)throw new Error('Invalid clip start/duration. Wait for the video to load, then select the clip again.');
     if(!Number.isFinite(source.duration)||source.duration<=0)throw new Error('Video metadata is not loaded yet.');
     captionStart=Math.min(captionStart,Math.max(0,source.duration-captionDuration));
-    captionStatus.textContent='Loading speech model (first time downloads ~250 MB)...';
+    captionStatus.textContent='Preparing speech model...';
     const tr=await loadTranscriber();
     const targetRate=16000;let samples=null,decodeErr=null,captureErr=null;
     captionStatus.textContent='Reading audio from the video...';
@@ -543,18 +570,26 @@ async function generateSubtitles(fromOverride=null,durationOverride=null,interna
       try{samples=await captureVideoAudioSamples(captionStart,captionDuration,targetRate);}catch(e){captureErr=e;}
     }
     if(!samples)throw new Error('Could not read the audio of this video. Direct decode: '+(decodeErr&&decodeErr.message)+' | Playback capture: '+(captureErr&&captureErr.message));
-    // silence check
-    let peak=0;for(let i=0;i<samples.length;i+=50){const v=Math.abs(samples[i]);if(v>peak)peak=v;}
-    if(peak<0.003)throw new Error('This part of the video is silent (no speech found).');
+    try{
+      let ad=document.getElementById('debugAudio');
+      if(!ad){ad=document.createElement('audio');ad.id='debugAudio';ad.controls=true;ad.style.cssText='width:100%;margin:8px 0';captionStatus.parentNode.insertBefore(ad,captionStatus.nextSibling);}
+      if(ad.dataset.url)URL.revokeObjectURL(ad.dataset.url);
+      const u=URL.createObjectURL(samplesToWav(samples,targetRate));ad.dataset.url=u;ad.src=u;
+    }catch(_){}
+    // Audio conditioning: peak-normalize quiet clips conservatively for speech recognition.
+    let peak=0;for(let i=0;i<samples.length;i+=32){const v=Math.abs(samples[i]);if(v>peak)peak=v;}
+    if(peak<0.003)throw new Error('Audio is extremely quiet or silent. Try another segment.');
+    if(peak>0.001){const gain=Math.min(6,0.82/peak);if(gain>1.05)for(let i=0;i<samples.length;i++)samples[i]=Math.max(-1,Math.min(1,samples[i]*gain));}
+
     // normalise volume so quiet speech is still recognised
     if(peak<0.5){const g=0.7/peak;const n=new Float32Array(samples.length);for(let i=0;i<samples.length;i++)n[i]=samples[i]*g;samples=n;}
     const lang=captionLanguage.value;
     captionStatus.textContent='Transcribing '+(lang==='hindi'?'Hindi':lang==='english'?'English':'speech')+'... (can take a minute)';
     const base={sampling_rate:targetRate,chunk_length_s:30,stride_length_s:5,task:'transcribe'};
     if(lang==='hindi')base.language='hindi';else if(lang==='english')base.language='english';
-    let out=null,words=[];
+    let out=null,words=[],lastErr=null;
     try{out=await tr(samples,Object.assign({return_timestamps:'word'},base));words=chunksToWords(out,captionDuration);}
-    catch(e){console.warn('Word timestamps failed, trying segment timestamps:',e);}
+    catch(e){console.warn('Word timestamps failed, trying segment timestamps:',e);lastErr=e;if(isCloud)throw e;}
     if(!words.length){
       try{
         const out2=await tr(samples,Object.assign({return_timestamps:true},base));
@@ -565,7 +600,7 @@ async function generateSubtitles(fromOverride=null,durationOverride=null,interna
           if(!Number.isFinite(s))s=0;if(!Number.isFinite(e)||e<=s)e=Math.min(captionDuration,s+t.length*0.4);
           const step=(e-s)/t.length;t.forEach((w,i)=>words.push({text:smartRoman(w),start:s+i*step,end:s+(i+1)*step}));
         }
-      }catch(e){console.warn('Segment timestamps failed:',e);}
+      }catch(e){console.warn('Segment timestamps failed:',e);lastErr=lastErr||e;}
     }
     // Hindi mode safety: Whisper sometimes "translates" into English. Retry forcing Hindi code + transcribe.
     if(lang==='hindi'&&words.length&&!words.some(w=>needsRomanize(w.text))&&out&&!needsRomanize(out.text||'')){
@@ -577,7 +612,17 @@ async function generateSubtitles(fromOverride=null,durationOverride=null,interna
     }
     if(!words.length&&out&&out.text)words=textToWords(out.text,captionDuration);
     words=words.filter(w=>w.text).map(w=>({text:w.text,start:Math.max(0,w.start),end:Math.min(captionDuration,Math.max(w.end,w.start+0.1))}));
-    if(!words.length)throw new Error('No speech was recognised in this clip. Try the other language setting (Hindi / English) or a clip with clearer speech.');
+    // Retry once with automatic language detection if nothing was recognised
+    if(!words.length&&lang!=='auto'){
+      try{
+        const b2=Object.assign({},base);delete b2.language;
+        const o4=await tr(samples,Object.assign({return_timestamps:'word'},b2));
+        out=o4;words=chunksToWords(o4,captionDuration);
+        if(!words.length&&o4.text)words=textToWords(o4.text,captionDuration);
+      }catch(e){console.warn('Auto-language retry failed',e);lastErr=lastErr||e;}
+    }
+    const dbg=' [debug: model='+((document.getElementById('captionModel')||{}).value)+', audio='+(samples.length/targetRate).toFixed(1)+'s, peak='+peak.toFixed(3)+', clipStart='+captionStart.toFixed(1)+'s, lastError="'+(lastErr?(lastErr.message||lastErr):'none')+'", rawText="'+String((out&&out.text)||'').slice(0,80)+'"]';
+    if(!words.length)throw new Error('No speech was recognised in this clip. Try the other language setting (Hindi / English) or a clip with clearer speech.'+dbg);
     captionWords=words;
     captionCount.textContent=words.length+' words timed for this clip. Captions will be burned into export.';
     editCaptionsBtn.disabled=false;renderCaptionEditor();
@@ -861,4 +906,4 @@ window.addEventListener('beforeunload',()=>{
 })();
 </script>
 </body>
-  </html>
+</html>
