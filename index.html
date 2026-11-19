@@ -10,7 +10,7 @@
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:#f5f7ff;font-family:Arial,Helvetica,sans-serif}
 header{padding:20px 18px;border-bottom:1px solid #252b3d}
-.logo{font-size:25px;font-weight:900;letter-spacing:.3px}.logo span{color:#9b8cff}
+.logo{font-size:25px;font-weight:900;letter-spacing:.3px}.logo span{color:#9b8cff}.byline{font-size:12px;color:#9aa5bd;margin-top:4px;letter-spacing:.15px}
 header p,.sub{color:var(--muted);font-size:13px}
 main{padding:20px 16px 32px;max-width:650px;margin:auto}
 h1{font-size:25px;margin:4px 0 8px}h2{font-size:17px;margin:0 0 14px}
@@ -67,12 +67,14 @@ video{width:100%;margin-top:13px;border-radius:10px;background:#05070c;max-heigh
 
 .small{font-size:11px;color:var(--muted);line-height:1.55}
 .notice{background:#201d35;border:1px solid #49416f;padding:12px;border-radius:10px;color:#dcd7ff;font-size:12px;line-height:1.5;margin-top:14px}
+.caption-preview{font-weight:900;text-align:center;font-size:22px;line-height:1.25;padding:16px 10px;border-radius:10px;background:#080b14;color:#fff;text-shadow:2px 2px 3px #000;min-height:64px;display:flex;align-items:center;justify-content:center}
 footer{text-align:center;color:#69738b;font-size:11px;padding:24px}
 </style>
 </head>
 <body>
 <header>
   <div class="logo">SHORTS<span>AI</span> ⚡</div>
+  <div class="byline">By Jinish Desai</div>
   <p>YOUR PERSONAL VIDEO CLIPPER</p>
 </header>
 <main>
@@ -106,43 +108,65 @@ footer{text-align:center;color:#69738b;font-size:11px;padding:24px}
     <input id="startTime" type="number" min="0" value="0" step="1">
     <input id="startSlider" type="range" min="0" max="0" value="0">
     <p class="small" id="videoLength">Upload a video to see its duration.</p>
+    <div class="batch-grid">
+      <div><label for="clipCount">Number of clips</label><select id="clipCount"><option value="2">2 clips</option><option value="3" selected>3 clips</option><option value="4">4 clips</option><option value="5">5 clips</option><option value="6">6 clips</option><option value="8">8 clips</option><option value="10">10 clips</option></select></div>
+      <div><label for="gapSeconds">Gap between clips</label><select id="gapSeconds"><option value="0" selected>No gap</option><option value="5">5 seconds</option><option value="10">10 seconds</option><option value="15">15 seconds</option><option value="30">30 seconds</option></select></div>
+    </div>
+    <label for="captionsEnabled">Subtitles in exported video</label><select id="captionsEnabled"><option value="on" selected>ON — burn captions into video</option><option value="off">OFF — no captions</option></select>
+    <label for="captionLanguage">Speech language</label><select id="captionLanguage"><option value="auto">Auto-detect</option><option value="hindi">Hindi (देवनागरी transcription)</option><option value="english">English</option></select>
+    <label for="captionFont">Subtitle font</label><select id="captionFont">
+      <option value="Impact,Haettenschweiler,'Arial Narrow Bold',sans-serif">Impact / GTA-style bold</option>
+      <option value="'Arial Black',Arial,sans-serif">Arial Black</option>
+      <option value="'Trebuchet MS',Arial,sans-serif">Trebuchet MS</option>
+      <option value="Verdana,Geneva,sans-serif">Verdana</option>
+      <option value="Tahoma,Geneva,sans-serif">Tahoma</option>
+      <option value="'Comic Sans MS',cursive,sans-serif">Comic Sans</option>
+      <option value="Georgia,'Times New Roman',serif">Georgia</option>
+      <option value="'Times New Roman',Times,serif">Times New Roman</option>
+      <option value="'Courier New',monospace">Courier New</option>
+      <option value="monospace">Monospace</option>
+      <option value="system-ui,-apple-system,'Segoe UI',sans-serif">System / modern</option>
+      <option value="'Franklin Gothic Medium',Arial,sans-serif">Franklin Gothic</option>
+    </select>
+    <label for="captionColor">Subtitle highlight colour</label><select id="captionColor">
+      <option value="#ffe45c">Classic yellow</option><option value="#ffffff">White</option>
+      <option value="#ff4fa3">GTA VI Miami pink</option><option value="#43e5ff">Neon cyan</option>
+      <option value="#a66bff">Vice purple</option><option value="#ff8c42">Sunset orange</option>
+      <option value="#63ff91">Neon green</option><option value="#ff4545">Red</option>
+      <option value="#4d9dff">Electric blue</option><option value="#ffb6d9">Bubblegum pink</option>
+      <option value="#c8ff4d">Lime</option><option value="#f5f5f5">Soft white</option>
+    </select>
+    <label for="captionStyle">Caption style</label><select id="captionStyle"><option value="classic">Classic white + black outline</option><option value="yellow">Creator yellow</option><option value="box">Dark rounded box</option><option value="pink">Pink highlight</option></select>
+    <div class="caption-preview" id="captionPreview">YOUR WORDS APPEAR HERE</div>
+    <p class="small" id="captionCount">No subtitles generated yet.</p>
+    <button class="secondary" id="transcribeBtn" disabled>🗣️ GENERATE SUBTITLES FOR THIS CLIP</button>
+    <p class="small" id="captionStatus">Upload a video and select a clip first.</p>
+    <label for="outputPreset">Export video dimensions</label>
+    <select id="outputPreset">
+      <option value="720x1280" selected>Shorts / Reels — 720 × 1280 (9:16)</option>
+      <option value="1080x1920">Full HD vertical — 1080 × 1920 (9:16)</option>
+      <option value="1080x1080">Square — 1080 × 1080 (1:1)</option>
+      <option value="1080x1350">Portrait — 1080 × 1350 (4:5)</option>
+      <option value="1280x720">Landscape — 1280 × 720 (16:9)</option>
+      <option value="custom">Custom dimensions</option>
+    </select>
+    <div class="batch-grid" id="customDimensions" style="display:none">
+      <div><label for="outputWidth">Width (px)</label><input id="outputWidth" type="number" min="240" max="1920" step="2" value="720"></div>
+      <div><label for="outputHeight">Height (px)</label><input id="outputHeight" type="number" min="240" max="1920" step="2" value="1280"></div>
+    </div>
+    <p class="small" id="dimensionInfo">Output: 720 × 1280 px</p>
     <button class="secondary" id="previewBtn" disabled>▶ Preview selected clip</button>
-    <button class="primary" id="exportBtn" disabled>⬇ EXPORT THIS CLIP</button>
     <div class="panel" style="margin-top:16px;background:#0d1423">
       <h2>✨ Find highlight moments</h2>
       <p class="small">Scan the video for visually active sections. ShortsAI will suggest moments based on movement and scene changes. This is a basic on-device detector, not semantic AI.</p>
       <button class="primary" id="analyzeBtn" disabled>🔎 FIND HIGHLIGHTS</button>
       <p class="small" id="analysisInfo">Upload a video to analyse it.</p>
       <div class="clip-list" id="suggestionList"></div>
-      <button class="primary" id="highlightBtn" disabled>✂️ CREATE SELECTED HIGHLIGHTS</button>
+      <button class="primary" id="highlightBtn" disabled>🎬 GENERATE SELECTED CLIPS</button>
     </div>
-    <div class="panel" style="margin-top:16px;background:#0d1423">
-      <h2>🎞️ Create multiple clips</h2>
-      <p class="small">Automatically divide your chosen section into several clips of the selected duration. You can download each clip separately.</p>
-      <div class="batch-grid">
-        <div>
-          <label for="clipCount">Number of clips</label>
-          <select id="clipCount">
-            <option value="2">2 clips</option><option value="3" selected>3 clips</option>
-            <option value="4">4 clips</option><option value="5">5 clips</option>
-            <option value="6">6 clips</option><option value="8">8 clips</option>
-            <option value="10">10 clips</option>
-          </select>
-        </div>
-        <div>
-          <label for="gapSeconds">Gap between clips</label>
-          <select id="gapSeconds">
-            <option value="0" selected>No gap</option>
-            <option value="5">5 seconds</option><option value="10">10 seconds</option>
-            <option value="15">15 seconds</option><option value="30">30 seconds</option>
-          </select>
-        </div>
-      </div>
-      <p class="small" id="batchInfo">Upload a video to calculate how many clips fit.</p>
-      <button class="primary" id="batchBtn" disabled>⚡ GENERATE MULTIPLE CLIPS</button>
-      <div class="progress-track"><div class="progress-fill" id="batchProgress"></div></div>
-      <div class="clip-list" id="clipList"></div>
-    </div>
+    <p class="small">Find Highlights scans for the number of moments you selected above. Select the moments you want, then generate them. Each finished clip will appear with a playable preview and its own download link.</p>
+    <div class="progress-track"><div class="progress-fill" id="batchProgress"></div></div>
+    <div class="clip-list" id="clipList"></div>
     <p class="status" id="status" role="status">Upload a video to get started.</p>
     <a id="downloadLink" href="#" download="ShortsAI-clip.webm">⬇ Download your clip</a>
     <video id="resultVideo" controls playsinline></video>
@@ -154,7 +178,7 @@ footer{text-align:center;color:#69738b;font-size:11px;padding:24px}
   <div class="features">
     <div class="feature"><b>✂️ Clip trimming</b>Choose the start and duration</div>
     <div class="feature"><b>📱 9:16 framing</b>Centre-cropped vertical output</div>
-    <div class="feature"><b>💬 AI captions</b>Not implemented yet</div>
+    <div class="feature"><b>💬 AI captions</b>Automatic word-timed subtitles</div>
     <div class="feature"><b>🤖 AI highlights</b>Not implemented yet</div>
   </div>
 </main>
@@ -165,18 +189,17 @@ footer{text-align:center;color:#69738b;font-size:11px;padding:24px}
 'use strict';
 const fileInput=document.getElementById('videoFile');
 const source=document.getElementById('sourceVideo');
+const transcribeVideo=document.createElement('video');transcribeVideo.playsInline=true;transcribeVideo.preload='auto';transcribeVideo.style.display='none';document.body.appendChild(transcribeVideo);
 const result=document.getElementById('resultVideo');
 const durationSelect=document.getElementById('duration');
+const outputPreset=document.getElementById('outputPreset'),customDimensions=document.getElementById('customDimensions'),outputWidth=document.getElementById('outputWidth'),outputHeight=document.getElementById('outputHeight'),dimensionInfo=document.getElementById('dimensionInfo');
 const startInput=document.getElementById('startTime');
 const slider=document.getElementById('startSlider');
 const status=document.getElementById('status');
-const exportBtn=document.getElementById('exportBtn');
 const previewBtn=document.getElementById('previewBtn');
 const downloadLink=document.getElementById('downloadLink');
-const batchBtn=document.getElementById('batchBtn');
 const clipCountSelect=document.getElementById('clipCount');
 const gapSelect=document.getElementById('gapSeconds');
-const batchInfo=document.getElementById('batchInfo');
 const batchProgress=document.getElementById('batchProgress');
 const clipList=document.getElementById('clipList');
 const analyzeBtn=document.getElementById('analyzeBtn');
@@ -188,7 +211,20 @@ const videoLength=document.getElementById('videoLength');
 let file=null,sourceURL=null,resultURL=null,videoDuration=0,previewStopHandler=null;
 let recording=false;
 let suggestions=[];
+const captionLanguage=document.getElementById('captionLanguage'),captionsEnabled=document.getElementById('captionsEnabled'),captionColor=document.getElementById('captionColor');
+const transcribeBtn=document.getElementById('transcribeBtn'),captionStatus=document.getElementById('captionStatus'),captionFont=document.getElementById('captionFont'),captionStyle=document.getElementById('captionStyle'),captionPreview=document.getElementById('captionPreview'),captionCount=document.getElementById('captionCount');
+let captionWords=[],transcriber=null,transcribing=false,captionStart=null,captionDuration=null;
 
+function outputSize(){
+  let w=720,h=1280;
+  if(outputPreset.value==='custom'){w=Math.max(240,Math.min(1920,Number(outputWidth.value)||720));h=Math.max(240,Math.min(1920,Number(outputHeight.value)||1280));w=Math.round(w/2)*2;h=Math.round(h/2)*2;}
+  else {const parts=outputPreset.value.split('x').map(Number);w=parts[0]||720;h=parts[1]||1280;}
+  return {w,h};
+}
+function updateDimensionUI(){
+  customDimensions.style.display=outputPreset.value==='custom'?'grid':'none';
+  const {w,h}=outputSize();dimensionInfo.textContent='Output: '+w+' × '+h+' px';
+}
 function clipLength(){return Number(durationSelect.value)||30}
 function maxStart(){return Math.max(0,videoDuration-clipLength())}
 function startAt(){return Math.max(0,Math.min(Number(startInput.value)||0,maxStart()))}
@@ -198,38 +234,14 @@ function setStart(v){
 }
 function updateControls(){
   const ready=!!file && Number.isFinite(videoDuration) && videoDuration>=clipLength();
-  exportBtn.disabled=!ready||recording;
   previewBtn.disabled=!ready||recording;
-  batchBtn.disabled=!ready||recording||!batchFits();
   analyzeBtn.disabled=!ready||recording;
+  transcribeBtn.disabled=!ready||recording||transcribing;
   highlightBtn.disabled=recording||!suggestionList.querySelector('input:checked');
   slider.max=maxStart();
   setStart(startInput.value);
-  updateBatchInfo();
 }
 function setStatus(message){status.textContent=message}
-function batchStarts(){
-  const count=Number(clipCountSelect.value)||3;
-  const gap=Number(gapSelect.value)||0;
-  const length=clipLength();
-  const first=startAt();
-  return Array.from({length:count},(_,i)=>first+i*(length+gap));
-}
-function batchFits(){
-  if(!Number.isFinite(videoDuration)||!videoDuration)return false;
-  const starts=batchStarts();
-  return starts.length>0 && starts[starts.length-1]+clipLength()<=videoDuration+0.05;
-}
-function updateBatchInfo(){
-  if(!batchInfo)return;
-  if(!videoDuration){batchInfo.textContent='Upload a video to calculate how many clips fit.';return}
-  const starts=batchStarts();
-  const end=starts[starts.length-1]+clipLength();
-  const fits=batchFits();
-  batchInfo.textContent=fits
-    ? starts.length+' clips · '+clipLength()+' seconds each · ends at '+end.toFixed(1)+'s'
-    : 'Not enough video for '+starts.length+' clips. Reduce the clip count, duration or gap, or choose an earlier starting point.';
-}
 
 fileInput.addEventListener('change',()=>{
   const chosen=fileInput.files&&fileInput.files[0];
@@ -241,7 +253,7 @@ fileInput.addEventListener('change',()=>{
   source.src=sourceURL;source.style.display='block';source.load();
   fileName.textContent='Selected: '+chosen.name+' ('+(chosen.size/1048576).toFixed(1)+' MB)';
   result.style.display='none';downloadLink.style.display='none';
-  suggestionList.innerHTML='';suggestions=[];analysisInfo.textContent='Ready to scan the video.';
+  suggestionList.innerHTML='';suggestions=[];captionWords=[];captionStart=null;captionDuration=null;captionCount.textContent='No subtitles generated yet.';captionStatus.textContent='Video selected. Generate subtitles for the selected clip.';analysisInfo.textContent='Ready to scan the video.';
   highlightBtn.disabled=true;
   setStatus('Reading video information...');
   updateControls();
@@ -253,12 +265,12 @@ source.addEventListener('loadedmetadata',()=>{
   setStatus(videoDuration>=clipLength()?'Video ready. Choose your clip.':'This video is shorter than the selected clip duration.');
 });
 source.addEventListener('error',()=>setStatus('This video format could not be previewed by your browser. Try an MP4 video encoded with H.264.'));
-startInput.addEventListener('input',()=>{setStart(startInput.value);updateControls()});
+startInput.addEventListener('input',()=>{setStart(startInput.value);if(captionWords.length&&(Math.abs(startAt()-captionStart)>.5||clipLength()!==captionDuration)){captionWords=[];captionStart=null;captionDuration=null;captionCount.textContent='Clip selection changed. Generate subtitles again.';captionStatus.textContent='Subtitles are cleared because the selected clip changed.'}updateControls()});
 slider.addEventListener('input',()=>{setStart(slider.value);updateControls()});
-clipCountSelect.addEventListener('change',updateControls);
+clipCountSelect.addEventListener('change',()=>{updateControls();updateSelectionCount();});
 gapSelect.addEventListener('change',updateControls);
 durationSelect.addEventListener('change',()=>{
-  slider.max=maxStart();setStart(startInput.value);updateControls();
+  slider.max=maxStart();setStart(startInput.value);if(captionWords.length&&clipLength()!==captionDuration){captionWords=[];captionStart=null;captionDuration=null;captionCount.textContent='Clip duration changed. Generate subtitles again.';captionStatus.textContent='Subtitles cleared because clip duration changed.'}updateControls();
   if(file)setStatus(videoDuration>=clipLength()?'Clip settings updated.':'Choose a shorter duration for this video.');
 });
 
@@ -305,11 +317,53 @@ function drawCover(ctx,video,w,h){
   }
   ctx.restore();
 }
+function drawCaptions(ctx,localTime,w,h){
+  if(!captionWords.length||captionStart===null)return;
+  const active=captionWords.filter(x=>localTime>=x.start&&localTime<=x.end);
+  if(!active.length)return;
+  const current=active[active.length-1],recent=captionWords.filter(x=>x.start<=localTime&&x.end>=localTime-1.7).slice(-4);
+  const style=captionStyle.value,font=captionFont.value,highlight=captionColor.value,size=38;ctx.save();ctx.textAlign='left';ctx.textBaseline='middle';ctx.font='900 '+size+'px '+font;
+  const tokens=recent.map(x=>({word:x.text.trim(),active:x===current})).filter(x=>x.word);const maxWidth=w-70;
+  const widths=tokens.map(t=>{ctx.font='900 '+(t.active?size*1.08:size)+'px '+font;return ctx.measureText(t.word).width});
+  const total=widths.reduce((a,b)=>a+b,0)+(tokens.length-1)*12,scale=total>maxWidth?maxWidth/total:1,scaled=widths.map(v=>v*scale),sum=scaled.reduce((a,b)=>a+b,0)+(tokens.length-1)*10*scale;
+  let x=(w-sum)/2,y=h*.77;if(style==='box'){ctx.fillStyle='rgba(0,0,0,.78)';ctx.beginPath();ctx.roundRect(Math.max(18,x-16),y-31,Math.min(w-36,sum+32),62,13);ctx.fill();}
+  tokens.forEach((t,i)=>{const fs=(t.active?size*1.08:size)*scale;ctx.font='900 '+fs+'px '+font;ctx.lineJoin='round';ctx.lineWidth=7*scale;ctx.strokeStyle='rgba(0,0,0,.96)';if(style!=='box')ctx.strokeText(t.word,x,y);ctx.fillStyle=t.active?highlight:(style==='pink'?'#ffc2e0':'#fff');ctx.fillText(t.word,x,y);x+=scaled[i]+10*scale;});ctx.restore();
+}
+function updateCaptionPreview(){captionPreview.style.fontFamily=captionFont.value;const st=captionStyle.value;captionPreview.style.color=captionColor.value;captionPreview.style.background=st==='box'?'#303030':'#080b14';captionPreview.style.textShadow=st==='box'?'none':'2px 2px 3px #000, -1px -1px 0 #000';}
+captionFont.addEventListener('change',updateCaptionPreview);captionStyle.addEventListener('change',updateCaptionPreview);captionColor.addEventListener('change',updateCaptionPreview);captionsEnabled.addEventListener('change',()=>{captionStatus.textContent=captionsEnabled.value==='off'?'Captions are disabled for export.':'Captions enabled for export.'});
+async function generateSubtitles(fromOverride=null,durationOverride=null,internal=false){
+  if(!file||(recording&&!internal)||transcribing)return;transcribing=true;updateControls();captionWords=[];captionStart=fromOverride===null?startAt():fromOverride;captionDuration=durationOverride===null?clipLength():durationOverride;captionStatus.textContent='Loading multilingual speech model (first download is larger)...';captionCount.textContent='';
+  let ac=null;
+  try{
+    if(!transcriber){const mod=await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1');mod.env.allowLocalModels=false;mod.env.useBrowserCache=true;transcriber=await mod.pipeline('automatic-speech-recognition','Xenova/whisper-small',{dtype:'q8',device:'wasm',progress_callback:p=>{if(p.status==='progress'&&p.total)captionStatus.textContent='Downloading multilingual Whisper Small: '+Math.round(p.loaded/p.total*100)+'%';}});}
+    captionStatus.textContent='Decoding audio directly from the uploaded file (no video playback)...';
+    ac=new (window.AudioContext||window.webkitAudioContext)();
+    const decoded=await ac.decodeAudioData(await file.arrayBuffer());
+    const srcRate=decoded.sampleRate,targetRate=16000,begin=Math.floor(captionStart*srcRate),finish=Math.min(decoded.length,Math.floor((captionStart+captionDuration)*srcRate));
+    if(finish<=begin)throw new Error('Selected clip audio range is empty.');
+    const monoLength=finish-begin,mono=new Float32Array(monoLength);
+    for(let ch=0;ch<decoded.numberOfChannels;ch++){const d=decoded.getChannelData(ch);for(let i=0;i<monoLength;i++)mono[i]+=d[begin+i]/decoded.numberOfChannels;}
+    const outLen=Math.floor(monoLength*targetRate/srcRate),samples=new Float32Array(outLen);
+    // Linear resampling into Whisper's 16 kHz input; selected clip only.
+    for(let i=0;i<outLen;i++){const pos=i*srcRate/targetRate,lo=Math.floor(pos),hi=Math.min(lo+1,monoLength-1),frac=pos-lo;samples[i]=mono[lo]*(1-frac)+mono[hi]*frac;}
+    await ac.close();ac=null;
+    captionStatus.textContent='Transcribing '+(captionLanguage.value==='hindi'?'Hindi':captionLanguage.value==='english'?'English':'speech')+'...';
+    // Whisper in Transformers.js expects language names (e.g. 'hindi', 'english'),
+    // not ISO-639 short codes. Always request transcription, never translation.
+    const opts={sampling_rate:targetRate,return_timestamps:'word',chunk_length_s:30,stride_length_s:5,task:'transcribe'};
+    if(captionLanguage.value==='hindi') opts.language='hindi';
+    else if(captionLanguage.value==='english') opts.language='english';
+    const out=await transcriber(samples,opts);
+    captionWords=(out.chunks||[]).map(c=>({text:(c.text||'').trim(),start:Number(c.timestamp?.[0]),end:Number(c.timestamp?.[1])})).filter(w=>w.text&&Number.isFinite(w.start)&&Number.isFinite(w.end)&&w.end>=w.start);
+    if(!captionWords.length){captionStatus.textContent='Transcription returned no usable word timestamps. Try a shorter clip or another language setting.';captionCount.textContent=(out.text||'No speech detected.');}else{captionCount.textContent=captionWords.length+' words timed for this selected clip. Captions will be burned into export.';captionStatus.textContent='Subtitles ready for this clip. Captions ON/OFF is controlled in Clip settings; export the same clip range to burn them in.';}
+  }catch(err){console.error(err);captionStatus.textContent='Subtitle generation failed: '+(err.message||String(err));captionCount.textContent='';captionWords=[];}
+  finally{if(ac){try{await ac.close()}catch(_){}}transcribing=false;updateControls();}
+}
 async function renderClip(from,seconds,label,onProgress){
   const mime=supportedMime();
   if(!mime)throw new Error('This browser does not support video recording. Try the latest Chrome.');
   const to=from+seconds;
-  const canvas=document.createElement('canvas');canvas.width=720;canvas.height=1280;
+  const canvas=document.createElement('canvas');const size=outputSize();canvas.width=size.w;canvas.height=size.h;
   const ctx=canvas.getContext('2d');
   const stream=canvas.captureStream(30);
   let audioContext=null;
@@ -327,7 +381,7 @@ async function renderClip(from,seconds,label,onProgress){
       audioSource.connect(audioContext.destination);
       audioDestination.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
     }
-    recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:6500000});
+    const pixelCount=canvas.width*canvas.height;const bitrate=Math.min(10000000,Math.max(2500000,Math.round(pixelCount*3.2)));recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:bitrate});
     recorder.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
     const finished=new Promise((resolve,reject)=>{
       recorder.onerror=e=>reject(e.error||new Error('Recording failed'));
@@ -347,13 +401,14 @@ async function renderClip(from,seconds,label,onProgress){
     // not accidentally included at the beginning of the exported file.
     drawCover(ctx,source,canvas.width,canvas.height);
     if(audioContext&&audioContext.state==='suspended')await audioContext.resume();
-    recorder.start(250);
+    recorder.start();
     await source.play();
     await new Promise((resolve,reject)=>{
       let ended=false;
       const draw=()=>{
         if(ended)return;
         drawCover(ctx,source,canvas.width,canvas.height);
+        if(captionsEnabled.value==='on'&&captionWords.length&&captionStart!==null&&Math.abs(from-captionStart)<0.75&&Math.abs(seconds-captionDuration)<0.75)drawCaptions(ctx,Math.max(0,source.currentTime-from),canvas.width,canvas.height);
         const progress=Math.max(0,Math.min(100,((source.currentTime-from)/seconds)*100));
         if(onProgress)onProgress(progress);
         if(source.currentTime>=to||source.ended){
@@ -362,10 +417,11 @@ async function renderClip(from,seconds,label,onProgress){
           resolve();
           return;
         }
-        requestAnimationFrame(draw);
+        scheduleFrame();
       };
+      const scheduleFrame=()=>{if(typeof source.requestVideoFrameCallback==='function')source.requestVideoFrameCallback(()=>draw());else requestAnimationFrame(draw);};
       source.addEventListener('error',()=>reject(new Error('Video playback failed')), {once:true});
-      requestAnimationFrame(draw);
+      scheduleFrame();
     });
     await finished;
     const blob=new Blob(chunks,{type:mime});
@@ -392,8 +448,8 @@ function waitForSeek(time){
     }
   });
 }
-function frameSignature(ctx,canvas){
-  ctx.drawImage(source,0,0,canvas.width,canvas.height);
+function frameSignature(ctx,canvas,video=source){
+  ctx.drawImage(video,0,0,canvas.width,canvas.height);
   const pixels=ctx.getImageData(0,0,canvas.width,canvas.height).data;
   const values=new Uint8Array(canvas.width*canvas.height);
   for(let i=0,j=0;i<pixels.length;i+=4,j++){
@@ -405,38 +461,55 @@ function selectedSuggestions(){
   return Array.from(suggestionList.querySelectorAll('input[type="checkbox"]:checked'))
     .map(el=>Number(el.value)).filter(n=>Number.isFinite(n));
 }
+function updateSelectionCount(){
+  const chosen=selectedSuggestions().length,limit=Number(clipCountSelect.value)||3;
+  analysisInfo.textContent=analysisInfo.textContent.replace(/\s*\|\s*Selected:.*$/,'')+' | Selected: '+chosen+'/'+limit+' clips';
+  highlightBtn.textContent='🎬 GENERATE '+chosen+' SELECTED CLIPS';
+  highlightBtn.disabled=recording||chosen===0;
+}
 async function analyseHighlights(){
   if(!file||recording)return;
   recording=true;updateControls();
   analyzeBtn.disabled=true;highlightBtn.disabled=true;
   suggestionList.innerHTML='';suggestions=[];
-  const previousTime=source.currentTime||0;
-  const wasPlaying=!source.paused;
-  source.pause();
+  let scanVideo=null, scanUrl=null;
   try{
+    // Use a separate decoder for analysis so preview playback/pausing never controls the scan.
+    scanVideo=document.createElement('video');
+    scanVideo.muted=true;scanVideo.preload='auto';scanVideo.playsInline=true;
+    scanUrl=URL.createObjectURL(file);scanVideo.src=scanUrl;
+    await new Promise((resolve,reject)=>{
+      const timeout=setTimeout(()=>reject(new Error('Analysis video loading timed out')),20000);
+      scanVideo.addEventListener('loadedmetadata',()=>{clearTimeout(timeout);resolve()},{once:true});
+      scanVideo.addEventListener('error',()=>{clearTimeout(timeout);reject(new Error('Could not load video for analysis'))},{once:true});
+    });
+    const scanDuration=scanVideo.duration||videoDuration;
     const canvas=document.createElement('canvas');canvas.width=48;canvas.height=27;
     const ctx=canvas.getContext('2d',{willReadFrequently:true});
-    const step=Math.max(1.5,videoDuration/900);
-    const scores=[];
-    let previous=null;
-    const total=Math.max(1,Math.ceil(videoDuration/step));
+    const seekScan=async(time)=>{
+      if(Math.abs(scanVideo.currentTime-time)<0.04&&scanVideo.readyState>=2)return;
+      await new Promise((resolve,reject)=>{
+        const timeout=setTimeout(()=>{scanVideo.removeEventListener('seeked',done);reject(new Error('Analysis seek timed out'))},12000);
+        function done(){clearTimeout(timeout);scanVideo.removeEventListener('seeked',done);resolve()}
+        scanVideo.addEventListener('seeked',done,{once:true});scanVideo.currentTime=time;
+      });
+    };
+    const step=Math.max(1.5,scanDuration/900);
+    const scores=[];let previous=null;
+    const total=Math.max(1,Math.ceil(scanDuration/step));
     for(let i=0;i<total;i++){
-      const t=Math.min(i*step,Math.max(0,videoDuration-0.08));
-      await waitForSeek(t);
-      const current=frameSignature(ctx,canvas);
+      const t=Math.min(i*step,Math.max(0,scanDuration-0.08));
+      await seekScan(t);
+      const current=frameSignature(ctx,canvas,scanVideo);
       let diff=0;
-      if(previous){
-        for(let j=0;j<current.length;j++)diff+=Math.abs(current[j]-previous[j]);
-        diff=diff/current.length/255;
-      }
-      scores.push({time:t,score:diff});
-      previous=current;
-      analysisInfo.textContent='Scanning video: '+Math.min(100,Math.round((i+1)/total*100))+'%';
+      if(previous){for(let j=0;j<current.length;j++)diff+=Math.abs(current[j]-previous[j]);diff=diff/current.length/255;}
+      scores.push({time:t,score:diff});previous=current;
+      analysisInfo.textContent='Scanning video independently: '+Math.min(100,Math.round((i+1)/total*100))+'%';
     }
     const length=clipLength();
     const stepWindow=Math.max(2,Math.min(5,length/4));
     const windows=[];
-    for(let start=0;start+length<=videoDuration+0.01;start+=stepWindow){
+    for(let start=0;start+length<=scanDuration+0.01;start+=stepWindow){
       const inside=scores.filter(x=>x.time>=start&&x.time<start+length);
       if(!inside.length)continue;
       const avg=inside.reduce((sum,x)=>sum+x.score,0)/inside.length;
@@ -446,144 +519,68 @@ async function analyseHighlights(){
     windows.sort((a,b)=>b.score-a.score);
     const chosen=[];
     for(const w of windows){
-      if(chosen.every(c=>Math.abs(c.start-w.start)>=length)){
+      if(chosen.every(c=>Math.abs(c.start-w.start)>=length+(Number(gapSelect.value)||0))){
         chosen.push(w);
-        if(chosen.length>=Math.min(10,Math.max(3,Number(clipCountSelect.value)||3)))break;
+        if(chosen.length>=Math.min(10,Math.max(1,Number(clipCountSelect.value)||3)))break;
       }
     }
-    chosen.sort((a,b)=>a.start-b.start);
-    suggestions=chosen;
-    if(!chosen.length){
-      analysisInfo.textContent='No suitable sections found. Try a shorter clip duration.';
-    }else{
+    chosen.sort((a,b)=>a.start-b.start);suggestions=chosen;
+    if(!chosen.length){analysisInfo.textContent='No suitable sections found. Try a shorter clip duration.';}
+    else{
       analysisInfo.textContent='Found '+chosen.length+' suggested moments. Select the ones you want to create.';
       chosen.forEach((item,index)=>{
-        const row=document.createElement('label');
-        row.className='clip-item';
-        row.style.display='flex';row.style.alignItems='center';row.style.gap='10px';row.style.margin='0';
-        const check=document.createElement('input');
-        check.type='checkbox';check.value=String(item.start);check.checked=true;
-        check.style.width='20px';check.style.height='20px';check.style.flex='0 0 auto';
-        check.addEventListener('change',updateControls);
-        const info=document.createElement('span');
-        info.textContent='Highlight '+(index+1)+' · '+formatTime(item.start)+' – '+formatTime(item.start+length)+' · activity score '+(item.score*100).toFixed(1);
+        const row=document.createElement('label');row.className='clip-item';row.style.display='flex';row.style.alignItems='center';row.style.gap='10px';row.style.margin='0';
+        const check=document.createElement('input');check.type='checkbox';check.value=String(item.start);check.checked=true;check.style.width='20px';check.style.height='20px';check.style.flex='0 0 auto';check.addEventListener('change',()=>{const max=Math.max(1,Number(clipCountSelect.value)||3);if(check.checked&&selectedSuggestions().length>max){check.checked=false;analysisInfo.textContent='You can select up to '+max+' highlights, based on Clip settings.';}updateControls();updateSelectionCount();});
+        const info=document.createElement('span');info.textContent='Highlight '+(index+1)+' · '+formatTime(item.start)+' – '+formatTime(item.start+length)+' · activity score '+(item.score*100).toFixed(1);
         row.append(check,info);suggestionList.appendChild(row);
       });
-      highlightBtn.disabled=false;
+      updateSelectionCount();
     }
-  }catch(err){
-    console.error(err);
-    analysisInfo.textContent='Analysis could not finish: '+(err.message||String(err));
-  }finally{
-    try{await waitForSeek(Math.min(previousTime,Math.max(0,videoDuration-0.1)))}catch(_){}
-    if(wasPlaying){try{await source.play()}catch(_){}}
-    recording=false;updateControls();
-    analyzeBtn.disabled=!file||videoDuration<clipLength();
+  }catch(err){console.error(err);analysisInfo.textContent='Analysis could not finish: '+(err.message||String(err));}
+  finally{
+    if(scanVideo){try{scanVideo.pause();scanVideo.removeAttribute('src');scanVideo.load();}catch(_){}}
+    if(scanUrl)URL.revokeObjectURL(scanUrl);
+    recording=false;updateControls();analyzeBtn.disabled=!file||videoDuration<clipLength();
   }
 }
 function formatTime(seconds){
   const m=Math.floor(seconds/60),s=Math.floor(seconds%60);
   return m+':'+String(s).padStart(2,'0');
 }
-async function createSelectedHighlights(){
-  if(recording)return;
-  const starts=selectedSuggestions();
-  if(!starts.length)return;
-  recording=true;updateControls();
-  const seconds=clipLength();
-  clipList.innerHTML='';
-  batchProgress.style.width='0%';
+
+async function generateBatch(){
+  if(!file||recording)return;
+  const starts=selectedSuggestions().slice(0,Math.max(1,Number(clipCountSelect.value)||3)),seconds=clipLength();
+  if(!starts.length){setStatus('Select at least one highlight first.');return;}
+  recording=true;updateControls();clipList.innerHTML='';batchProgress.style.width='0%';
   try{
     for(let i=0;i<starts.length;i++){
-      const start=starts[i];
+      if(captionsEnabled.value==='on'){setStatus('Generating subtitles for highlight '+(i+1)+' of '+starts.length+'...');await generateSubtitles(starts[i],seconds,true);if(!captionWords.length)throw new Error('Subtitles failed for highlight '+(i+1)+'. Turn captions OFF or retry before export.');}
       setStatus('Creating selected highlight '+(i+1)+' of '+starts.length+'...');
-      const output=await renderClip(start,seconds,'highlight '+(i+1),p=>{
+      const output=await renderClip(starts[i],seconds,'highlight '+(i+1),p=>{
         batchProgress.style.width=(((i+p/100)/starts.length)*100)+'%';
         setStatus('Creating highlight '+(i+1)+' of '+starts.length+' · '+Math.floor(p)+'%');
       });
       const ext=output.mime.toLowerCase().includes('mp4')?'mp4':'webm';
       const url=URL.createObjectURL(output.blob);
       const item=document.createElement('div');item.className='clip-item';
-      const heading=document.createElement('b');heading.textContent='Highlight '+(i+1)+' · '+formatTime(start);
-      const detail=document.createElement('div');detail.className='muted';detail.textContent=seconds+' seconds · vertical 9:16 · '+ext.toUpperCase();
+      const heading=document.createElement('b');heading.textContent='Highlight '+(i+1)+' · '+formatTime(starts[i]);
+      const detail=document.createElement('div');detail.className='muted';detail.textContent=seconds+' seconds · '+outputSize().w+' × '+outputSize().h+' px · '+ext.toUpperCase();
+      const player=document.createElement('video');player.controls=true;player.playsInline=true;player.preload='metadata';player.src=url;player.style.display='block';player.style.width='100%';player.style.maxWidth='420px';player.style.borderRadius='12px';player.style.margin='10px 0';
       const link=document.createElement('a');link.href=url;link.download='ShortsAI-highlight-'+String(i+1).padStart(2,'0')+'.'+ext;link.textContent='⬇ Download highlight '+(i+1);
-      item.append(heading,detail,link);clipList.appendChild(item);
+      item.append(heading,detail,player,link);clipList.appendChild(item);
     }
-    batchProgress.style.width='100%';
-    setStatus('Done! Your selected highlights are ready to download below.');
-  }catch(err){
-    console.error(err);setStatus('Highlight export stopped: '+(err.message||String(err))+'. Completed clips remain available.');
-  }finally{recording=false;updateControls()}
+    batchProgress.style.width='100%';setStatus('Finished! Preview each generated clip below, then download the ones you want.');
+  }catch(err){console.error(err);setStatus('Highlight export stopped: '+(err.message||String(err))+'. Completed clips remain available below.');}
+  finally{recording=false;updateControls();updateSelectionCount();}
 }
 
-async function exportClip(){
-  if(!file||recording)return;
-  recording=true;updateControls();downloadLink.style.display='none';result.style.display='none';
-  try{
-    setStatus('Preparing your clip...');
-    const seconds=clipLength(),from=startAt();
-    const output=await renderClip(from,seconds,'single',p=>setStatus('Recording clip: '+Math.floor(p)+'%'));
-    if(resultURL)URL.revokeObjectURL(resultURL);
-    resultURL=URL.createObjectURL(output.blob);
-    const ext=output.mime.toLowerCase().includes('mp4')?'mp4':'webm';
-    downloadLink.href=resultURL;
-    downloadLink.download='ShortsAI-'+seconds+'s.'+ext;
-    downloadLink.textContent='⬇ Download your '+ext.toUpperCase()+' clip';
-    downloadLink.style.display='block';
-    result.src=resultURL;result.style.display='block';
-    setStatus('Success! Your '+seconds+'-second vertical '+ext.toUpperCase()+' is ready.');
-  }catch(err){
-    console.error(err);
-    setStatus('Export failed: '+(err&&err.message?err.message:String(err)));
-  }finally{
-    recording=false;updateControls();
-  }
-}
-async function generateBatch(){
-  if(!file||recording)return;
-  const starts=batchStarts(),seconds=clipLength();
-  if(!batchFits()){setStatus('The selected clips do not fit inside this video.');return}
-  recording=true;updateControls();
-  clipList.innerHTML='';
-  batchProgress.style.width='0%';
-  const completed=[];
-  try{
-    for(let i=0;i<starts.length;i++){
-      setStatus('Creating clip '+(i+1)+' of '+starts.length+'...');
-      const output=await renderClip(starts[i],seconds,'clip '+(i+1),p=>{
-        const total=((i+p/100)/starts.length)*100;
-        batchProgress.style.width=total+'%';
-        setStatus('Creating clip '+(i+1)+' of '+starts.length+' · '+Math.floor(p)+'%');
-      });
-      completed.push(output);
-      const ext=output.mime.toLowerCase().includes('mp4')?'mp4':'webm';
-      const url=URL.createObjectURL(output.blob);
-      const item=document.createElement('div');
-      item.className='clip-item';
-      const heading=document.createElement('b');
-      heading.textContent='Clip '+(i+1)+' · '+starts[i].toFixed(1)+'s to '+(starts[i]+seconds).toFixed(1)+'s';
-      const detail=document.createElement('div');
-      detail.className='muted';
-      detail.textContent=seconds+' seconds · vertical 9:16 · '+ext.toUpperCase();
-      const link=document.createElement('a');
-      link.href=url;link.download='ShortsAI-clip-'+String(i+1).padStart(2,'0')+'.'+ext;
-      link.textContent='⬇ Download clip '+(i+1);
-      item.append(heading,detail,link);
-      clipList.appendChild(item);
-    }
-    batchProgress.style.width='100%';
-    setStatus('Done! '+completed.length+' clips are ready. Download them one by one below.');
-  }catch(err){
-    console.error(err);
-    setStatus('Batch stopped: '+(err&&err.message?err.message:String(err))+'. Clips already completed remain available below.');
-  }finally{
-    recording=false;updateControls();
-  }
-}
-exportBtn.addEventListener('click',exportClip);
-batchBtn.addEventListener('click',generateBatch);
+outputPreset.addEventListener('change',updateDimensionUI);
+outputWidth.addEventListener('input',updateDimensionUI);outputHeight.addEventListener('input',updateDimensionUI);
+updateDimensionUI();
+transcribeBtn.addEventListener('click',generateSubtitles);
 analyzeBtn.addEventListener('click',analyseHighlights);
-highlightBtn.addEventListener('click',createSelectedHighlights);
+highlightBtn.addEventListener('click',generateBatch);
 window.addEventListener('beforeunload',()=>{
   if(sourceURL)URL.revokeObjectURL(sourceURL);
   if(resultURL)URL.revokeObjectURL(resultURL);
@@ -591,4 +588,4 @@ window.addEventListener('beforeunload',()=>{
 })();
 </script>
 </body>
-</html>
+    </html>
